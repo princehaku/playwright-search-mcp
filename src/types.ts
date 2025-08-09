@@ -25,6 +25,7 @@ export interface CommandOptions {
   stateFile?: string;
   noSaveState?: boolean;
   locale?: string; // 搜索结果语言，默认为中文(zh-CN)
+  proxy?: string; // 代理服务器，如 socks5://127.0.0.1:1080
 }
 
 /**

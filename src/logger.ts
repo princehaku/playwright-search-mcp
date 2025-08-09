@@ -2,6 +2,21 @@ import { pino } from "pino";
 import * as path from "path";
 import * as fs from "fs";
 import * as os from "os";
+import pinoPretty from "pino-pretty";
+import { execSync } from "child_process";
+
+// 在 Windows 上强制控制台使用 UTF-8，避免中文乱码
+if (process.platform === "win32") {
+  try {
+    execSync("chcp 65001", { stdio: "ignore" });
+  } catch {}
+  if ((process.stdout as any).setDefaultEncoding) {
+    (process.stdout as any).setDefaultEncoding("utf8");
+  }
+  if ((process.stderr as any).setDefaultEncoding) {
+    (process.stderr as any).setDefaultEncoding("utf8");
+  }
+}
 
 // 使用系统临时目录，确保跨平台兼容性
 const logDir = path.join(os.tmpdir(), "google-search-logs");
@@ -12,30 +27,27 @@ if (!fs.existsSync(logDir)) {
 // 创建日志文件路径
 const logFilePath = path.join(logDir, "google-search.log");
 
-// 创建pino日志实例
-const logger = pino({
-  level: process.env.LOG_LEVEL || "info", // 可通过环境变量设置日志级别
-  transport: {
-    targets: [
-      // 输出到控制台，使用pino-pretty美化输出
-      {
-        target: "pino-pretty",
-        level: "info",
-        options: {
-          colorize: true,
-          translateTime: "SYS:yyyy-mm-dd HH:MM:ss",
-          ignore: "pid,hostname",
-        },
-      },
-      // 输出到文件 - 使用trace级别确保捕获所有日志
-      {
-        target: "pino/file",
-        level: "trace", // 使用最低级别以捕获所有日志
-        options: { destination: logFilePath },
-      },
-    ],
-  },
+// 主线程多路输出，避免 pretty 在 worker 内导致编码不一致
+const prettyStream = pinoPretty({
+  colorize: false,
+  translateTime: "SYS:yyyy-mm-dd HH:MM:ss",
+  ignore: "pid,hostname",
+  messageFormat: "{msg}",
 });
+
+// 文件输出（使用 sonic-boom，默认 UTF-8），确保目录已创建
+const fileStream = pino.destination({ dest: logFilePath, mkdir: true, sync: false });
+
+// 创建 pino 日志实例（控制台 + 文件）
+const logger = pino(
+  {
+    level: process.env.LOG_LEVEL || "info",
+  },
+  pino.multistream([
+    { level: "info", stream: prettyStream },
+    { level: "trace", stream: fileStream },
+  ])
+);
 
 // 添加进程退出时的处理
 process.on("exit", () => {

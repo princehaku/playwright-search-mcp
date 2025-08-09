@@ -6,6 +6,32 @@ import * as os from "os";
 import logger from "./logger.js";
 import { url } from "inspector";
 
+// 解析代理字符串为 Playwright 的 proxy 配置
+function getPlaywrightProxyConfig(proxyUrl?: string):
+  | {
+      server: string;
+      username?: string;
+      password?: string;
+      bypass?: string;
+    }
+  | undefined {
+  if (!proxyUrl) return undefined;
+  try {
+    const u = new URL(proxyUrl);
+    const server = `${u.protocol}//${u.hostname}${u.port ? ":" + u.port : ""}`;
+    const cfg: { server: string; username?: string; password?: string } = {
+      server,
+    };
+    if (u.username) cfg.username = decodeURIComponent(u.username);
+    if (u.password) cfg.password = decodeURIComponent(u.password);
+    return cfg;
+  } catch (e) {
+    // 回退：无法解析时直接传入原字符串
+    logger.warn({ proxy: proxyUrl }, "代理URL解析失败，按原样传递给 Playwright");
+    return { server: proxyUrl } as any;
+  }
+}
+
 // 指纹配置接口
 interface FingerprintConfig {
   deviceName: string;
@@ -174,9 +200,7 @@ export async function googleSearch(
   // Google域名列表
   const googleDomains = [
     "https://www.google.com",
-    "https://www.google.co.uk",
-    "https://www.google.ca",
-    "https://www.google.com.au",
+    "https://www.google.com.hk",
   ];
 
   // 获取随机设备配置或使用保存的配置
@@ -222,6 +246,7 @@ export async function googleSearch(
       browser = await chromium.launch({
         headless,
         timeout: timeout * 2, // 增加浏览器启动超时时间
+        proxy: getPlaywrightProxyConfig(options.proxy),
         args: [
           "--disable-blink-features=AutomationControlled",
           "--disable-features=IsolateOrigins,site-per-process",
@@ -432,6 +457,7 @@ export async function googleSearch(
             const newBrowser = await chromium.launch({
               headless: false, // 使用有头模式
               timeout: timeout * 2,
+              proxy: getPlaywrightProxyConfig(options.proxy),
               args: [
                 "--disable-blink-features=AutomationControlled",
                 // 其他参数与原来相同
@@ -568,6 +594,7 @@ export async function googleSearch(
             const newBrowser = await chromium.launch({
               headless: false, // 使用有头模式
               timeout: timeout * 2,
+              proxy: getPlaywrightProxyConfig(options.proxy),
               args: [
                 "--disable-blink-features=AutomationControlled",
                 // 其他参数与原来相同
@@ -1136,6 +1163,7 @@ export async function getGoogleSearchPageHtml(
     browser = await chromium.launch({
       headless,
       timeout: timeout * 2, // 增加浏览器启动超时时间
+      proxy: getPlaywrightProxyConfig(options.proxy),
       args: [
         "--disable-blink-features=AutomationControlled",
         "--disable-features=IsolateOrigins,site-per-process",

@@ -1,10 +1,28 @@
 #!/usr/bin/env node
 
+// 设置控制台编码为 UTF-8，确保中文字符正确显示
+if (process.platform === 'win32') {
+  // Windows 平台特殊处理
+  process.env.LANG = 'zh_CN.UTF-8';
+  // 尝试设置控制台代码页为 UTF-8
+  try {
+    require('child_process').execSync('chcp 65001', { stdio: 'ignore' });
+  } catch (e) {
+    // 忽略错误，继续执行
+  }
+  
+  // 设置 stdout 和 stderr 的编码
+  if (process.stdout.setDefaultEncoding) {
+    process.stdout.setDefaultEncoding('utf8');
+  }
+  if (process.stderr.setDefaultEncoding) {
+    process.stderr.setDefaultEncoding('utf8');
+  }
+}
+
 import { Command } from "commander";
 import { googleSearch, getGoogleSearchPageHtml } from "./search.js";
 import { CommandOptions } from "./types.js";
-
-// 获取包信息
 import packageJson from "../package.json" with { type: "json" };
 
 // 创建命令行程序
@@ -24,6 +42,7 @@ program
   .option("--get-html", "获取搜索结果页面的原始HTML而不是解析结果")
   .option("--save-html", "将HTML保存到文件")
   .option("--html-output <path>", "HTML输出文件路径")
+  .option("--proxy <url>", "代理服务器(示例: socks5://127.0.0.1:1080)")
   .action(async (query: string, options: CommandOptions & { getHtml?: boolean, saveHtml?: boolean, htmlOutput?: string }) => {
     try {
       if (options.getHtml) {
