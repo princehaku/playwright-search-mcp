@@ -1,28 +1,51 @@
-# Google Search Tool
+# Playwright Search MCP Tool
 
-A Playwright-based Node.js tool that bypasses search engine anti-scraping mechanisms to execute Google searches and extract results. It can be used directly as a command-line tool or as a Model Context Protocol (MCP) server to provide real-time search capabilities to AI assistants like Claude.
+A Playwright-based Node.js tool that bypasses search engine anti-scraping mechanisms to execute searches and extract results from **any search engine**. It can be used directly as a command-line tool or as a Model Context Protocol (MCP) server to provide real-time search capabilities to AI assistants like Claude.
 
-[![Star History Chart](https://api.star-history.com/svg?repos=web-agent-master/google-search&type=Date)](https://star-history.com/#web-agent-master/google-search&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=princehaku/playwright-search-mcp&type=Date)](https://star-history.com/#princehaku/playwright-search-mcp&Date)
 
 [中文文档](README.zh-CN.md)
 
+## Supported Search Engines
+
+This tool is designed to work with **any search engine** and has been tested with:
+
+- **Google** - Global search engine with advanced anti-bot detection
+- **Baidu (百度)** - China's largest search engine, supporting Chinese language searches
+- **Zhihu (知乎)** - Chinese Q&A platform with search functionality
+- **Bing** - Microsoft's search engine
+- **DuckDuckGo** - Privacy-focused search engine
+- **Yahoo** - Traditional web search engine
+- **And many more...** - The tool's architecture allows easy adaptation to any search engine
+
+### Search Engine Specific Features
+
+- **Google**: Advanced fingerprint management and state restoration for complex anti-bot systems
+- **Baidu**: Optimized for Chinese language processing and Baidu's specific page structure
+- **Zhihu**: Specialized handling for Q&A content and community-driven search results
+- **Universal**: Configurable selectors and parsers for any search engine's page structure
+
 ## Key Features
 
+- **Universal Search Engine Support**: Works with any search engine, not limited to Google
 - **Local SERP API Alternative**: No need to rely on paid search engine results API services, all searches are executed locally
 - **Advanced Anti-Bot Detection Bypass Techniques**:
   - Intelligent browser fingerprint management that simulates real user behavior
   - Automatic saving and restoration of browser state to reduce verification frequency
   - Smart headless/headed mode switching, automatically switching to headed mode when verification is needed
   - Randomization of device and locale settings to reduce detection risk
-- **Raw HTML Retrieval**: Ability to fetch the raw HTML of search result pages (with CSS and JavaScript removed) for analysis and debugging when Google's page structure changes
+- **Raw HTML Retrieval**: Ability to fetch the raw HTML of search result pages (with CSS and JavaScript removed) for analysis and debugging when search engine page structures change
 - **Page Screenshot**: Automatically captures and saves a full-page screenshot when saving HTML content
 - **MCP Server Integration**: Provides real-time search capabilities to AI assistants like Claude without requiring additional API keys
 - **Completely Open Source and Free**: All code is open source with no usage restrictions, freely customizable and extensible
+- **Multi-Language Support**: Built-in support for Chinese, English, and other languages across different search engines
 
 ## Technical Features
 
 - Developed with TypeScript, providing type safety and better development experience
 - Browser automation based on Playwright, supporting multiple browser engines
+- **Multi-Search Engine Architecture**: Configurable selectors and parsers for different search engines
+- **Language-Aware Processing**: Built-in support for Chinese, English, and other languages
 - Command-line parameter support for search keywords
 - MCP server support for AI assistant integration
 - Returns search results with title, link, and snippet
@@ -32,13 +55,14 @@ A Playwright-based Node.js tool that bypasses search engine anti-scraping mechan
 - Detailed logging output
 - Robust error handling
 - Browser state saving and restoration to effectively avoid anti-bot detection
+- **Cross-Platform Compatibility**: Works on Windows, macOS, and Linux
 
 ## Installation
 
 ```bash
 # Install from source
-git clone https://github.com/web-agent-master/google-search.git
-cd google-search
+git clone https://github.com/princehaku/playwright-search-mcp.git
+cd playwright-search-mcp
 # Install dependencies
 npm install
 # Or using yarn
@@ -75,14 +99,23 @@ This tool has been specially adapted for Windows environments:
 ### Command Line Tool
 
 ```bash
-# Direct command line usage
-google-search "search keywords"
+# Search on Google (default)
+playwright-search "search keywords"
+
+# Search on Baidu
+playwright-search --engine baidu "搜索关键词"
+
+# Search on Zhihu
+playwright-search --engine zhihu "知乎搜索关键词"
+
+# Search on Bing
+playwright-search --engine bing "search keywords"
 
 # Using command line options
-google-search --limit 5 --timeout 60000 --no-headless "search keywords"
+playwright-search --limit 5 --timeout 60000 --no-headless "search keywords"
 
 # Or using npx
-npx google-search-cli "search keywords"
+npx playwright-search-mcp "search keywords"
 
 # Run in development mode
 pnpm dev "search keywords"
@@ -91,17 +124,18 @@ pnpm dev "search keywords"
 pnpm debug "search keywords"
 
 # Get raw HTML of search result page
-google-search "search keywords" --get-html
+playwright-search "search keywords" --get-html
 
 # Get HTML and save to file
-google-search "search keywords" --get-html --save-html
+playwright-search "search keywords" --get-html --save-html
 
 # Get HTML and save to specific file
-google-search "search keywords" --get-html --save-html --html-output "./output.html"
+playwright-search "search keywords" --get-html --save-html --html-output "./output.html"
 ```
 
 #### Command Line Options
 
+- `-e, --engine <engine>`: Search engine to use (google, baidu, zhihu, bing, duckduckgo, yahoo) (default: google)
 - `-l, --limit <number>`: Result count limit (default: 10)
 - `-t, --timeout <number>`: Timeout in milliseconds (default: 60000)
 - `--no-headless`: Show browser interface (for debugging)
@@ -162,8 +196,8 @@ If you also use the `--save-html` option, the output will include the path where
   "url": "https://www.google.com/",
   "originalHtmlLength": 1292241,
   "cleanedHtmlLength": 458976,
-  "savedPath": "./google-search-html/playwright_automation-2025-04-06T03-30-06-852Z.html",
-  "screenshotPath": "./google-search-html/playwright_automation-2025-04-06T03-30-06-852Z.png",
+          "savedPath": "./playwright-search-html/playwright_automation-2025-04-06T03-30-06-852Z.html",
+        "screenshotPath": "./playwright-search-html/playwright_automation-2025-04-06T03-30-06-852Z.png",
   "htmlPreview": "<!DOCTYPE html><html itemscope=\"\" itemtype=\"http://schema.org/SearchResultsPage\" lang=\"zh-CN\">..."
 }
 ```
@@ -190,9 +224,9 @@ pnpm build
 ```json
 {
   "mcpServers": {
-    "google-search": {
+    "playwright-search": {
       "command": "npx",
-      "args": ["google-search-mcp"]
+      "args": ["playwright-search-mcp"]
     }
   }
 }
@@ -205,9 +239,9 @@ For Windows environments, you can also use the following configurations:
 ```json
 {
   "mcpServers": {
-    "google-search": {
+    "playwright-search": {
       "command": "cmd.exe",
-      "args": ["/c", "npx", "google-search-mcp"]
+      "args": ["/c", "npx", "playwright-search-mcp"]
     }
   }
 }
@@ -218,22 +252,135 @@ For Windows environments, you can also use the following configurations:
 ```json
 {
   "mcpServers": {
-    "google-search": {
+    "playwright-search": {
       "command": "node",
-      "args": ["C:/path/to/your/google-search/dist/src/mcp-server.js"]
+      "args": ["C:/path/to/your/playwright-search-mcp/dist/src/mcp-server.js"]
     }
   }
 }
 ```
 
-Note: For the second method, you must replace `C:/path/to/your/google-search` with the actual full path to where you installed the google-search package.
+Note: For the second method, you must replace `C:/path/to/your/playwright-search-mcp` with the actual full path to where you installed the playwright-search-mcp package.
 
 After integration, you can directly use search functionality in Claude, such as "search for the latest AI research".
+
+## Search Engine Specific Usage
+
+### Google Search
+Google is the default search engine and provides the most comprehensive results:
+
+```bash
+# Basic Google search
+playwright-search "artificial intelligence"
+
+# Google search with Chinese keywords
+playwright-search "人工智能"
+
+# Google search with specific options
+playwright-search --limit 20 --engine google "machine learning"
+```
+
+**Features:**
+- Advanced anti-bot detection bypass
+- Comprehensive search results
+- Support for multiple languages
+- Rich metadata extraction
+
+### Baidu Search (百度搜索)
+Baidu is China's largest search engine, optimized for Chinese content:
+
+```bash
+# Baidu search in Chinese
+playwright-search --engine baidu "人工智能"
+
+# Baidu search with English keywords
+playwright-search --engine baidu "machine learning"
+
+# Baidu search with specific options
+playwright-search --engine baidu --limit 15 "深度学习"
+```
+
+**Features:**
+- Optimized for Chinese language processing
+- Access to Chinese-specific content and services
+- Baidu Baike integration
+- News and academic search support
+
+### Zhihu Search (知乎搜索)
+Zhihu is a Chinese Q&A platform with high-quality community content:
+
+```bash
+# Zhihu search for questions and answers
+playwright-search --engine zhihu "如何学习编程"
+
+# Zhihu search for specific topics
+playwright-search --engine zhihu "Python入门"
+
+# Zhihu search with English keywords
+playwright-search --engine zhihu "programming tutorial"
+```
+
+**Features:**
+- Community-driven Q&A content
+- High-quality expert answers
+- Topic-based content organization
+- Rich multimedia content support
+
+### Bing Search
+Microsoft's search engine with good international coverage:
+
+```bash
+# Bing search
+playwright-search --engine bing "web development"
+
+# Bing search with specific options
+playwright-search --engine bing --limit 25 "AI tools"
+```
+
+**Features:**
+- Good international content coverage
+- Microsoft ecosystem integration
+- Visual search capabilities
+- News and image search support
+
+### DuckDuckGo Search
+Privacy-focused search engine:
+
+```bash
+# DuckDuckGo search
+playwright-search --engine duckduckgo "privacy tools"
+
+# DuckDuckGo search with specific options
+playwright-search --engine duckduckgo --limit 10 "anonymous browsing"
+```
+
+**Features:**
+- Privacy-focused (no tracking)
+- Instant answers
+- Bang commands support
+- Clean, ad-free interface
+
+### Custom Search Engine Configuration
+You can easily add support for new search engines by creating custom selectors and parsers:
+
+```typescript
+// Example: Adding a custom search engine
+const customEngine = {
+  name: 'my-search-engine',
+  searchUrl: 'https://mysearchengine.com/search?q={query}',
+  selectors: {
+    results: '.search-result',
+    title: '.result-title',
+    link: '.result-link',
+    snippet: '.result-snippet'
+  }
+};
+```
 
 ## Project Structure
 
 ```
-google-search/
+playwright-search-mcp/
 ├── package.json          # Project configuration and dependencies
 ├── tsconfig.json         # TypeScript configuration
 ├── src/
@@ -243,7 +390,7 @@ google-search/
 │   └── types.ts          # Type definitions (interfaces and type declarations)
 ├── dist/                 # Compiled JavaScript files
 ├── bin/                  # Executable files
-│   └── google-search     # Command line entry script
+│   └── playwright-search     # Command line entry script
 ├── README.md             # Project documentation
 └── .gitignore            # Git ignore file
 ```
@@ -338,8 +485,33 @@ The tool has built-in robust error handling mechanisms:
 - In Windows environments, you may need administrator privileges to install Playwright browsers for the first time
 - If you encounter permission issues, try running Command Prompt or PowerShell as administrator
 - Windows Firewall may block Playwright browser network connections; allow access when prompted
-- Browser state files are saved by default in the user's home directory as `.google-search-browser-state.json`
-- Log files are stored in the system temporary directory under the `google-search-logs` folder
+- Browser state files are saved by default in the user's home directory as `.playwright-search-browser-state.json`
+- Log files are stored in the system temporary directory under the `playwright-search-logs` folder
+
+## Multi-Search Engine Advantages
+
+### Why Use Multiple Search Engines?
+
+1. **Content Diversity**: Different search engines index different content, providing more comprehensive results
+2. **Language Optimization**: Some engines are better optimized for specific languages (e.g., Baidu for Chinese)
+3. **Regional Coverage**: Access to region-specific content and services
+4. **Anti-Bot Resilience**: If one engine blocks requests, others remain available
+5. **Specialized Content**: Some engines focus on specific types of content (e.g., Zhihu for Q&A)
+
+### Use Cases
+
+- **Research**: Compare results across multiple engines for comprehensive information
+- **Localization**: Use region-specific engines for local content and services
+- **Backup Strategy**: Maintain multiple search options when one engine is unavailable
+- **Content Discovery**: Find content that might be missed by using only one search engine
+- **Language Learning**: Access content in different languages through appropriate engines
+
+### Performance Considerations
+
+- Each search engine may have different response times
+- Some engines may require different anti-bot strategies
+- Browser state management varies between engines
+- Rate limiting and blocking policies differ across platforms
 
 ## Comparison with Commercial SERP APIs
 

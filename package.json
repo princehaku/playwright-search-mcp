@@ -1,13 +1,13 @@
 {
-  "name": "google-search-cli",
+  "name": "playwright-search",
   "version": "1.0.0",
-  "description": "基于 Playwright 的 Google 搜索 CLI 工具",
+  "description": "基于 Playwright 的搜索引擎 MCP 工具",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "google-search": "./bin/google-search.js",
-    "google-search-mcp": "./bin/google-search-mcp.js"
+    "playwright-search": "./bin/playwright-search.js",
+    "playwright-search-mcp": "./bin/playwright-search-mcp.js"
   },
   "scripts": {
     "build": "tsc",
@@ -25,22 +25,22 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/web-agent-master/google-search.git"
+    "url": "git+https://github.com/princehaku/playwright-search-mcp.git"
   },
-  "homepage": "https://github.com/web-agent-master/google-search#readme",
+  "homepage": "https://github.com/princehaku/playwright-search-mcp#readme",
   "bugs": {
-    "url": "https://github.com/web-agent-master/google-search/issues"
+    "url": "https://github.com/princehaku/playwright-search-mcp/issues"
   },
   "keywords": [
-    "google",
+    "playwright",
     "search",
     "cli",
-    "playwright",
     "automation",
     "mcp",
-    "claude"
+    "claude",
+    "search-engine"
   ],
-  "author": "web-agent-master",
+  "author": "princehaku",
   "license": "ISC",
   "devDependencies": {
     "@types/node": "^22.13.9",

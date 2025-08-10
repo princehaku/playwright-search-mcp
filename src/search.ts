@@ -32,6 +32,16 @@ function getPlaywrightProxyConfig(proxyUrl?: string):
   }
 }
 
+// 规范化 headless 配置（兼容 boolean 与字符串）
+function coerceHeadless(value: unknown): boolean {
+  if (value === false) return false;
+  if (typeof value === "string") {
+    const v = value.toLowerCase();
+    if (v === "false" || v === "0" || v === "no") return false;
+  }
+  return true;
+}
+
 // 指纹配置接口
 interface FingerprintConfig {
   deviceName: string;
@@ -144,8 +154,8 @@ export async function googleSearch(
     locale = "zh-CN", // 默认使用中文
   } = options;
 
-  // 忽略传入的headless参数，总是以无头模式启动
-  let useHeadless = true;
+  // 根据传入参数决定是否无头
+  let useHeadless = options.headless !== false;
 
   logger.info({ options }, "正在初始化浏览器...");
 
@@ -249,30 +259,12 @@ export async function googleSearch(
         proxy: getPlaywrightProxyConfig(options.proxy),
         args: [
           "--disable-blink-features=AutomationControlled",
-          "--disable-features=IsolateOrigins,site-per-process",
-          "--disable-site-isolation-trials",
-          "--disable-web-security",
           "--no-sandbox",
           "--disable-setuid-sandbox",
           "--disable-dev-shm-usage",
-          "--disable-accelerated-2d-canvas",
-          "--no-first-run",
-          "--no-zygote",
           "--disable-gpu",
-          "--hide-scrollbars",
-          "--mute-audio",
-          "--disable-background-networking",
-          "--disable-background-timer-throttling",
-          "--disable-backgrounding-occluded-windows",
-          "--disable-breakpad",
-          "--disable-component-extensions-with-background-pages",
-          "--disable-extensions",
-          "--disable-features=TranslateUI",
-          "--disable-ipc-flooding-protection",
-          "--disable-renderer-backgrounding",
-          "--enable-features=NetworkService,NetworkServiceInProcess",
-          "--force-color-profile=srgb",
-          "--metrics-recording-only",
+          "--no-first-run",
+          "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         ],
         ignoreDefaultArgs: ["--enable-automation"],
       });
@@ -816,12 +808,12 @@ export async function googleSearch(
 
       let results: SearchResult[] = []; // 在 evaluate 调用之前声明 results
 
-      // 提取搜索结果 - 使用移植自 google-search-extractor.cjs 的逻辑
+      // 提取搜索结果 - 使用移植自 playwright-search-extractor.cjs 的逻辑
       results = await page.evaluate((maxResults: number): SearchResult[] => { // 添加返回类型
         const results: { title: string; link: string; snippet: string }[] = [];
         const seenUrls = new Set<string>(); // 用于去重
 
-        // 定义多组选择器，按优先级排序 (参考 google-search-extractor.cjs)
+        // 定义多组选择器，按优先级排序 (参考 playwright-search-extractor.cjs)
         const selectorSets = [
           { container: '#search div[data-hveid]', title: 'h3', snippet: '.VwiC3b' },
           { container: '#rso div[data-hveid]', title: 'h3', snippet: '[data-sncf="1"]' },
@@ -1053,6 +1045,576 @@ export async function googleSearch(
   }
 
   // 首先尝试以无头模式执行搜索
+  logger.info({ requestedHeadless: options.headless, useHeadless }, "Google headless 参数");
+  return performSearch(useHeadless);
+}
+
+/**
+ * 执行百度搜索并返回结果
+ */
+export async function baiduSearch(
+  query: string,
+  options: CommandOptions = {},
+  existingBrowser?: Browser
+): Promise<SearchResponse> {
+  const { limit = 10, timeout = 60000, stateFile = "./browser-state.json", noSaveState = false, locale = "zh-CN" } = options;
+  let useHeadless = options.headless !== false;
+
+  logger.info({ options }, "正在初始化浏览器用于百度搜索...");
+
+  // 使用浏览器方式搜索
+  let storageState: string | undefined = fs.existsSync(stateFile) ? stateFile : undefined;
+
+  const fingerprintFile = stateFile.replace(".json", "-fingerprint.json");
+  let savedState: SavedState = {};
+  if (fs.existsSync(fingerprintFile)) {
+    try {
+      const fingerprintData = fs.readFileSync(fingerprintFile, "utf8");
+      savedState = JSON.parse(fingerprintData);
+    } catch {}
+  }
+
+  const [deviceName, deviceConfig] = (() => {
+    if (savedState.fingerprint?.deviceName && devices[savedState.fingerprint.deviceName]) {
+      return [savedState.fingerprint.deviceName, devices[savedState.fingerprint.deviceName]] as [string, any];
+    }
+    return ["Desktop Chrome", devices["Desktop Chrome"]] as [string, any];
+  })();
+
+  const hostConfig = savedState.fingerprint || getHostMachineConfig(locale);
+  let contextOptions: BrowserContextOptions = {
+    ...(hostConfig.deviceName !== deviceName ? devices[hostConfig.deviceName] : deviceConfig),
+    locale: hostConfig.locale,
+    timezoneId: hostConfig.timezoneId,
+    colorScheme: hostConfig.colorScheme,
+    reducedMotion: hostConfig.reducedMotion,
+    forcedColors: hostConfig.forcedColors,
+    permissions: ["geolocation", "notifications"],
+    acceptDownloads: true,
+    isMobile: false,
+    hasTouch: false,
+    javaScriptEnabled: true,
+  };
+
+  async function performSearch(headless: boolean): Promise<SearchResponse> {
+    let browser: Browser;
+    if (existingBrowser) {
+      browser = existingBrowser;
+    } else {
+      browser = await chromium.launch({
+        headless,
+        timeout: timeout * 2,
+        proxy: getPlaywrightProxyConfig(options.proxy),
+        args: [
+          "--no-sandbox",
+          "--disable-setuid-sandbox",
+          "--disable-dev-shm-usage",
+          "--disable-gpu",
+          "--no-first-run",
+          "--disable-web-security",
+          "--disable-features=VizDisplayCompositor"
+        ],
+        ignoreDefaultArgs: ["--enable-automation"],
+      });
+    }
+
+    const context = await browser.newContext(storageState ? { ...contextOptions, storageState } : contextOptions);
+    await context.addInitScript(() => {
+      Object.defineProperty(navigator, "webdriver", { get: () => false });
+      Object.defineProperty(navigator, "plugins", { get: () => [1, 2, 3, 4, 5] });
+      Object.defineProperty(navigator, "languages", { get: () => ["zh-CN", "zh", "en"] });
+      Object.defineProperty(window, "chrome", { get: () => ({ runtime: {} }) });
+      
+      // 移除webdriver属性
+      delete (navigator as any).webdriver;
+      
+      // 添加Chrome对象
+      (window as any).chrome = {
+        runtime: {},
+        loadTimes: function() {},
+        csi: function() {},
+        app: {}
+      };
+      
+      // 修改navigator属性
+      Object.defineProperty(navigator, 'webdriver', {
+        get: () => undefined,
+      });
+      
+      // 修改permissions
+      const originalQuery = window.navigator.permissions.query;
+      window.navigator.permissions.query = (parameters) => (
+        parameters.name === 'notifications' ?
+          Promise.resolve({ state: Notification.permission } as any) :
+          originalQuery(parameters)
+      );
+    });
+
+    const page = await context.newPage();
+    try {
+            // 直接访问百度搜索结果页面
+      const searchUrl = `https://www.baidu.com/s?wd=${encodeURIComponent(query)}&rn=${limit}`;
+      logger.info("正在访问百度搜索结果页面:", searchUrl);
+      await page.goto(searchUrl, { 
+        timeout: 60000, 
+        waitUntil: "networkidle" 
+      });
+      
+      // 等待页面完全加载
+      await page.waitForTimeout(3000);
+      
+      // 检查页面是否正常加载
+      const pageContent = await page.content();
+      const pageTitle = await page.title();
+      logger.info("百度搜索结果页面内容长度:", pageContent.length);
+      logger.info("百度搜索结果页面标题:", pageTitle);
+      
+      if (pageContent.length < 1000) {
+        throw new Error("百度页面内容异常，可能被拦截");
+      }
+      
+      // 调试：尝试截图
+      try {
+        await page.screenshot({ path: "baidu-debug.png" });
+        logger.info("已保存百度页面截图到 baidu-debug.png");
+      } catch (e) {
+        logger.warn("截图失败:", e);
+      }
+      
+      // 等待搜索结果出现
+      logger.info("等待搜索结果出现...");
+      try {
+        await page.waitForSelector("div#content_left .result, div#content_left .c-container", { timeout: 15000 });
+        logger.info("搜索结果已加载");
+      } catch (e) {
+        logger.warn("等待搜索结果超时，继续尝试解析...");
+      }
+
+      // 解析结果（更健壮的选择器）
+      const results = await page.evaluate((maxResults: number) => {
+        const list: { title: string; link: string; snippet: string }[] = [];
+        
+        const cleanText = (t?: string | null) => (t || "").replace(/[\u200B-\u200D\uFEFF]/g, "").replace(/\s+/g, " ").trim();
+        
+        // 尝试多种结果容器选择器
+        const selectors = [
+          "div#content_left .result",
+          "div#content_left .c-container", 
+          "div#content_left .result-op",
+          "div#content_left .c-row",
+          "div#content_left [class*='result']"
+        ];
+        
+        let items: NodeListOf<Element> | null = null;
+        for (const selector of selectors) {
+          items = document.querySelectorAll(selector);
+          if (items.length > 0) break;
+        }
+        
+        if (!items || items.length === 0) {
+          // 兜底：查找所有可能的结果项
+          items = document.querySelectorAll("div#content_left > div");
+        }
+        
+        for (const el of Array.from(items)) {
+          if (list.length >= maxResults) break;
+          
+          // 尝试多种标题选择器
+          let title = "";
+          let link = "";
+          let snippet = "";
+          
+          // 标题和链接
+          const titleSelectors = [
+            "h3 a",
+            "h3",
+            "a[href]",
+            ".t a",
+            ".c-title a"
+          ];
+          
+          for (const titleSelector of titleSelectors) {
+            const titleEl = el.querySelector(titleSelector);
+            if (titleEl) {
+              if (titleEl instanceof HTMLAnchorElement) {
+                title = cleanText(titleEl.textContent);
+                link = titleEl.href;
+                break;
+                             } else if (titleEl.textContent) {
+                 title = cleanText(titleEl.textContent);
+                 // 尝试在标题元素附近找链接
+                 const nearbyLink = titleEl.querySelector("a") || titleEl.parentElement?.querySelector("a");
+                 if (nearbyLink instanceof HTMLAnchorElement) {
+                   link = nearbyLink.href || "";
+                 }
+                 break;
+               }
+            }
+          }
+          
+          // 摘要
+          const snippetSelectors = [
+            ".c-abstract",
+            ".c-span-last", 
+            ".c-color",
+            ".c-row",
+            ".c-abstract-text",
+            "p"
+          ];
+          
+          for (const snippetSelector of snippetSelectors) {
+            const snippetEl = el.querySelector(snippetSelector);
+            if (snippetEl && snippetEl.textContent) {
+              snippet = cleanText(snippetEl.textContent);
+              if (snippet.length > 10) break; // 确保有足够的内容
+            }
+          }
+          
+          // 过滤有效结果
+          if (title && link && link.startsWith("http") && !link.includes("baidu.com/baidu")) {
+            list.push({ title, link, snippet });
+          }
+        }
+        
+        return list;
+      }, limit);
+
+      if (!existingBrowser) await browser.close();
+      return { query, results };
+    } catch (e) {
+      if (!existingBrowser) await browser.close();
+      return { query, results: [{ title: "搜索失败", link: "", snippet: String(e) }] };
+    }
+  }
+
+  logger.info({ requestedHeadless: options.headless, useHeadless }, "百度 headless 参数");
+  return performSearch(useHeadless);
+}
+
+
+
+/**
+ * 执行知乎站内搜索并返回结果（知识搜索）
+ */
+export async function zhihuSearch(
+  query: string,
+  options: CommandOptions = {},
+  existingBrowser?: Browser
+): Promise<SearchResponse> {
+  const { limit = 10, timeout = 60000, stateFile = "./browser-state.json", locale = "zh-CN", noSaveState = false } = options;
+  let useHeadless = options.headless !== false;
+
+  // 为知乎使用独立的状态与指纹文件
+  const zhihuStateFile = stateFile.endsWith('.json')
+    ? stateFile.replace(/\.json$/i, "-zhihu.json")
+    : stateFile + "-zhihu.json";
+  const fingerprintFile = zhihuStateFile.replace(".json", "-fingerprint.json");
+
+  let storageState: string | undefined = fs.existsSync(zhihuStateFile) ? zhihuStateFile : undefined;
+  let savedState: SavedState = {};
+  if (fs.existsSync(fingerprintFile)) {
+    try {
+      const fingerprintData = fs.readFileSync(fingerprintFile, "utf8");
+      savedState = JSON.parse(fingerprintData);
+      logger.info({ fingerprintFile }, "已加载知乎指纹配置");
+    } catch (e) {
+      logger.warn({ error: e }, "无法加载知乎指纹配置，将创建新的指纹");
+    }
+  }
+
+  const hostConfig = savedState.fingerprint || getHostMachineConfig(locale);
+  let contextOptions: BrowserContextOptions = {
+    ...devices[hostConfig.deviceName],
+    locale: hostConfig.locale,
+    timezoneId: hostConfig.timezoneId,
+    colorScheme: hostConfig.colorScheme,
+    permissions: ["geolocation", "notifications"],
+    acceptDownloads: true,
+    isMobile: false,
+    hasTouch: false,
+    javaScriptEnabled: true,
+  };
+
+  async function performSearch(headless: boolean, antiBot: boolean = false): Promise<SearchResponse> {
+    let browser: Browser;
+    let browserWasProvided = false;
+    if (existingBrowser && !options.proxy) {
+      browser = existingBrowser;
+      browserWasProvided = true;
+    } else {
+      logger.info({ headless, antiBot }, `准备以${headless ? "无头" : "有头"}模式启动浏览器用于知乎...${antiBot ? "(开启反机器人检测增强)" : ""}`);
+      browser = await chromium.launch({
+        headless,
+        timeout: timeout * 2,
+        proxy: getPlaywrightProxyConfig(options.proxy),
+        args: [
+          "--disable-blink-features=AutomationControlled",
+          "--no-sandbox",
+          "--disable-setuid-sandbox",
+          "--disable-dev-shm-usage",
+          "--disable-gpu",
+          "--no-first-run",
+          "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        ],
+        ignoreDefaultArgs: ["--enable-automation"],
+      });
+    }
+
+    // 设置上下文
+    const context = await browser.newContext(
+      storageState ? { ...contextOptions, storageState } : contextOptions
+    );
+    // 基础伪装：始终注入
+    await context.addInitScript(() => {
+      Object.defineProperty(navigator, "webdriver", { get: () => false });
+      Object.defineProperty(navigator, "plugins", { get: () => [1, 2, 3, 4, 5] });
+      Object.defineProperty(navigator, "languages", { get: () => ["zh-CN", "zh", "en-US", "en"] });
+      // @ts-ignore
+      window.chrome = { runtime: {}, loadTimes: function () {}, csi: function () {}, app: {} };
+      if (typeof WebGLRenderingContext !== "undefined") {
+        const getParameter = WebGLRenderingContext.prototype.getParameter;
+        WebGLRenderingContext.prototype.getParameter = function (parameter: number) {
+          if (parameter === 37445) return "Intel Inc.";
+          if (parameter === 37446) return "Intel Iris OpenGL Engine";
+          return getParameter.call(this, parameter);
+        };
+      }
+    });
+
+    if (antiBot) {
+      // 反爬增强：额外HTTP头与屏幕属性伪装
+      await context.setExtraHTTPHeaders({
+        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+        "Upgrade-Insecure-Requests": "1",
+      });
+    }
+
+    const page = await context.newPage();
+
+    try {
+      // 访问知乎搜索页（内容搜索）
+      const searchUrl = `https://www.zhihu.com/search?type=content&q=${encodeURIComponent(query)}`;
+      logger.info({ searchUrl }, "正在访问知乎搜索页面...");
+      if (antiBot) {
+        await page.addInitScript(() => {
+          Object.defineProperty(window.screen, "width", { get: () => 1920 });
+          Object.defineProperty(window.screen, "height", { get: () => 1080 });
+          Object.defineProperty(window.screen, "colorDepth", { get: () => 24 });
+          Object.defineProperty(window.screen, "pixelDepth", { get: () => 24 });
+        });
+      }
+      const response = await page.goto(searchUrl, { timeout, waitUntil: "domcontentloaded" });
+
+      // 检测登录/验证码/风控页
+      const sorryPatterns = ["/signin", "login", "captcha", "verify", "verification", "anti", "403"];
+      const currentUrl = page.url();
+      const isBlocked = sorryPatterns.some((p) => currentUrl.includes(p) || (response && response.url().toString().includes(p)));
+      if (isBlocked && headless) {
+        logger.warn("检测到知乎登录/验证码/风控页面，将以有头模式并开启反机器人检测增强重新启动，请完成验证或登录...");
+        await page.close();
+        await context.close();
+        if (!browserWasProvided) await browser.close();
+        return performSearch(false, true);
+      }
+      if (isBlocked) {
+        logger.warn("请在打开的浏览器中完成知乎登录或验证码，完成后将继续提取结果...");
+        await page.waitForNavigation({ timeout: timeout * 2, waitUntil: "networkidle" }).catch(() => {});
+      }
+
+      // 等待搜索结果卡片出现，并进行懒加载滚动（兼容多种结构）
+      const cardsSelector = "div.SearchResult-Card, div.SearchResultItem, div.SearchResult, div.List-item";
+      try { await page.waitForSelector(cardsSelector, { timeout: timeout / 2 }); } catch {}
+
+      // 自动向下滚动加载更多内容，直到达到数量或达到滚动次数上限
+      const target = Math.max(limit, 10);
+      for (let i = 0; i < 20; i++) {
+        const count = await page.locator(cardsSelector).count().catch(() => 0);
+        if (count >= target) break;
+        await page.evaluate(() => window.scrollBy(0, window.innerHeight));
+        await page.waitForTimeout(500);
+      }
+
+      // 提取结果（更健壮的选择器与清洗逻辑）
+      const results = await page.evaluate((maxResults: number) => {
+        const list: { title: string; link: string; snippet: string }[] = [];
+
+        const isValidLink = (href: string) => {
+          if (!href) return false;
+          if (!href.startsWith("http")) return false;
+          // 允许知乎站内常见内容链接
+          const allowPatterns = [/zhihu\.com\/question\//, /zhihu\.com\/answer\//, /zhuanlan\.zhihu\.com\/p\//, /zhihu\.com\/zvideo\//, /zhihu\.com\/article\//];
+          if (allowPatterns.some((re) => re.test(href))) return true;
+          // 其他域也允许，但过滤明显的导航/登录等
+          const blockPatterns = [/\b(signin|login|verify|verification|captcha)\b/, /\bpeople\b/];
+          if (blockPatterns.some((re) => re.test(href))) return false;
+          return true;
+        };
+
+                const cleanText = (t?: string | null) => (t || "").replace(/[\u200B-\u200D\uFEFF]/g, "").replace(/\s+/g, " ").trim();
+        
+        const tryGetTitleAndLink = (root: Element): { a?: HTMLAnchorElement; title: string; link: string } => {
+          // 优先一：带埋点的Title
+          let a = root.querySelector("a[data-za-detail-view-element_name='Title']") as HTMLAnchorElement | null;
+          // 优先二：常见标题类名
+          if (!a) a = root.querySelector("a.QuestionItem-title, a.ContentItem-title, a.ArticleItem-title, a.ZVideoItem-title") as HTMLAnchorElement | null;
+          // 优先三：任意可用的站内链接
+          if (!a) {
+            const candidates = Array.from(root.querySelectorAll("a[href]")) as HTMLAnchorElement[];
+            a = candidates.find((x) => isValidLink(x.href)) || null;
+          }
+          const link = a?.href || "";
+          // 标题
+          let title = cleanText(a?.textContent || "");
+          if (!title) {
+            const h = root.querySelector("h1,h2,h3");
+            title = cleanText(h?.textContent || "");
+          }
+          return { a: a || undefined, title, link };
+        };
+
+        const tryGetSnippet = (root: Element): string => {
+          const snippetEl = (root.querySelector(".RichContent-inner") as HTMLElement)
+            || (root.querySelector(".ArticleItem-excerpt") as HTMLElement)
+            || (root.querySelector(".RichText") as HTMLElement)
+            || (root.querySelector(".ContentItem-meta, .KfeCollection-DetailAuthor") as HTMLElement)
+            || null;
+          let snippet = cleanText(snippetEl?.textContent || "");
+          if (!snippet) {
+            // 兜底：取容器中较长的一段文本
+            const blocks = Array.from(root.querySelectorAll("p,div,span")) as HTMLElement[];
+            for (const b of blocks) {
+              const txt = cleanText(b.textContent || "");
+              if (txt.length >= 30 && txt !== "登录加入知乎，与世界分享你的知识、经验和见解") {
+                snippet = txt;
+                break;
+              }
+            }
+          }
+          return snippet;
+        };
+
+        const cardNodes = document.querySelectorAll("div.SearchResult-Card, div.SearchResultItem, div.SearchResult, div.List-item");
+        for (const el of Array.from(cardNodes)) {
+          if (list.length >= maxResults) break;
+          const { title, link } = tryGetTitleAndLink(el);
+          if (!title || !link || !isValidLink(link)) continue;
+          const snippet = tryGetSnippet(el);
+          list.push({ title, link, snippet });
+        }
+
+        return list.slice(0, maxResults);
+      }, limit);
+
+      // 保存状态与指纹，便于下次免登录/降低风控
+      try {
+        if (!noSaveState) {
+          const stateDir = path.dirname(zhihuStateFile);
+          if (!fs.existsSync(stateDir)) fs.mkdirSync(stateDir, { recursive: true });
+          await context.storageState({ path: zhihuStateFile });
+          // 保存指纹
+          savedState.fingerprint = hostConfig;
+          fs.writeFileSync(fingerprintFile, JSON.stringify(savedState, null, 2), "utf8");
+        }
+      } catch (e) {
+        logger.warn({ error: e }, "保存知乎状态/指纹失败");
+      }
+
+      // 关闭或保留浏览器
+      if (!browserWasProvided) {
+        await browser.close();
+      }
+
+      return { query, results };
+    } catch (e) {
+      // 错误时也尝试保存状态
+      try {
+        if (!noSaveState) {
+          await context.storageState({ path: zhihuStateFile });
+          savedState.fingerprint = hostConfig;
+          fs.writeFileSync(fingerprintFile, JSON.stringify(savedState, null, 2), "utf8");
+        }
+      } catch {}
+
+      if (!browserWasProvided) {
+        await browser.close();
+      }
+      return { query, results: [{ title: "搜索失败", link: "", snippet: String(e) }] };
+    }
+  }
+
+  logger.info({ requestedHeadless: options.headless, useHeadless }, "知乎 headless 参数");
+  return performSearch(useHeadless);
+}
+
+/**
+ * 执行小红书站内搜索并返回结果
+ */
+export async function xiaohongshuSearch(
+  query: string,
+  options: CommandOptions = {},
+  existingBrowser?: Browser
+): Promise<SearchResponse> {
+  const { limit = 10, timeout = 60000, stateFile = "./browser-state.json", locale = "zh-CN" } = options;
+  let useHeadless = options.headless !== false;
+
+  let storageState: string | undefined = fs.existsSync(stateFile) ? stateFile : undefined;
+  const fingerprintFile = stateFile.replace(".json", "-fingerprint.json");
+  let savedState: SavedState = {};
+  if (fs.existsSync(fingerprintFile)) {
+    try {
+      const fingerprintData = fs.readFileSync(fingerprintFile, "utf8");
+      savedState = JSON.parse(fingerprintData);
+    } catch {}
+  }
+
+  const hostConfig = savedState.fingerprint || getHostMachineConfig(locale);
+  let contextOptions: BrowserContextOptions = {
+    ...devices[hostConfig.deviceName],
+    locale: hostConfig.locale,
+    timezoneId: hostConfig.timezoneId,
+    colorScheme: hostConfig.colorScheme,
+  };
+
+  async function performSearch(headless: boolean): Promise<SearchResponse> {
+    const browser = await chromium.launch({
+      headless,
+      timeout: timeout * 2,
+      proxy: getPlaywrightProxyConfig(options.proxy),
+      ignoreDefaultArgs: ["--enable-automation"],
+    });
+    const context = await browser.newContext(storageState ? { ...contextOptions, storageState } : contextOptions);
+    const page = await context.newPage();
+    try {
+      // 小红书PC站搜索页（需注意可能强登录/风控）
+      await page.goto(`https://www.xiaohongshu.com/search_result?keyword=${encodeURIComponent(query)}`, { timeout, waitUntil: "domcontentloaded" });
+
+      // 等待卡片加载
+      try { await page.waitForSelector(".feeds-container, .note-item, .browse-mode", { timeout: timeout / 2 }); } catch {}
+
+      const results = await page.evaluate((maxResults: number) => {
+        const list: { title: string; link: string; snippet: string }[] = [];
+        // 多种可能结构
+        const cards = document.querySelectorAll("a[href*='/explore/'], a[href*='/discovery/item/']");
+        for (const aEl of Array.from(cards)) {
+          if (!(aEl instanceof HTMLAnchorElement)) continue;
+          if (list.length >= maxResults) break;
+          const title = (aEl.textContent || "").trim();
+          const link = aEl.href;
+          const snippet = title; // 站内摘要不稳定，先退化为标题
+          if (title && link) list.push({ title, link, snippet });
+        }
+        return list;
+      }, limit);
+
+      await browser.close();
+      return { query, results };
+    } catch (e) {
+      await browser.close();
+      return { query, results: [{ title: "搜索失败", link: "", snippet: String(e) }] };
+    }
+  }
+
+  logger.info({ requestedHeadless: options.headless, useHeadless }, "小红书 headless 参数");
   return performSearch(useHeadless);
 }
 
@@ -1061,7 +1623,7 @@ export async function googleSearch(
  * @param query 搜索关键词
  * @param options 搜索选项
  * @param saveToFile 是否将HTML保存到文件（可选）
- * @param outputPath HTML输出文件路径（可选，默认为'./google-search-html/[query]-[timestamp].html'）
+ * @param outputPath HTML输出文件路径（可选，默认为'./playwright-search-html/[query]-[timestamp].html'）
  * @returns 包含HTML内容的响应对象
  */
 export async function getGoogleSearchPageHtml(
@@ -1078,8 +1640,8 @@ export async function getGoogleSearchPageHtml(
     locale = "zh-CN", // 默认使用中文
   } = options;
 
-  // 忽略传入的headless参数，总是以无头模式启动
-  let useHeadless = true;
+  // 根据传入参数决定是否无头
+  let useHeadless = options.headless !== false;
 
   logger.info({ options }, "正在初始化浏览器以获取搜索页面HTML...");
 
@@ -1126,9 +1688,9 @@ export async function getGoogleSearchPageHtml(
   // Google域名列表
   const googleDomains = [
     "https://www.google.com",
+    "https://www.google.com.hk",
     "https://www.google.co.uk",
     "https://www.google.ca",
-    "https://www.google.com.au",
   ];
 
   // 获取随机设备配置或使用保存的配置
@@ -1166,30 +1728,12 @@ export async function getGoogleSearchPageHtml(
       proxy: getPlaywrightProxyConfig(options.proxy),
       args: [
         "--disable-blink-features=AutomationControlled",
-        "--disable-features=IsolateOrigins,site-per-process",
-        "--disable-site-isolation-trials",
-        "--disable-web-security",
         "--no-sandbox",
         "--disable-setuid-sandbox",
         "--disable-dev-shm-usage",
-        "--disable-accelerated-2d-canvas",
-        "--no-first-run",
-        "--no-zygote",
         "--disable-gpu",
-        "--hide-scrollbars",
-        "--mute-audio",
-        "--disable-background-networking",
-        "--disable-background-timer-throttling",
-        "--disable-backgrounding-occluded-windows",
-        "--disable-breakpad",
-        "--disable-component-extensions-with-background-pages",
-        "--disable-extensions",
-        "--disable-features=TranslateUI",
-        "--disable-ipc-flooding-protection",
-        "--disable-renderer-backgrounding",
-        "--enable-features=NetworkService,NetworkServiceInProcess",
-        "--force-color-profile=srgb",
-        "--metrics-recording-only",
+        "--no-first-run",
+        "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
       ],
       ignoreDefaultArgs: ["--enable-automation"],
     });
@@ -1496,7 +2040,7 @@ export async function getGoogleSearchPageHtml(
         // 生成默认文件名（如果未提供）
         if (!outputPath) {
           // 确保目录存在
-          const outputDir = "./google-search-html";
+          const outputDir = "./playwright-search-html";
           if (!fs.existsSync(outputDir)) {
             fs.mkdirSync(outputDir, { recursive: true });
           }

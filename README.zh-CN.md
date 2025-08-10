@@ -1,26 +1,49 @@
-# Google 搜索工具
+# Playwright 搜索 MCP 工具
 
-这是一个基于 Playwright 的 Node.js 工具，能够绕过搜索引擎的反爬虫机制，执行 Google 搜索并提取结果。它可作为命令行工具直接使用，或通过 Model Context Protocol (MCP) 服务器为 Claude 等 AI 助手提供实时搜索能力。
+这是一个基于 Playwright 的 Node.js 工具，能够绕过搜索引擎的反爬虫机制，执行搜索并提取结果。它可作为命令行工具直接使用，或通过 Model Context Protocol (MCP) 服务器为 Claude 等 AI 助手提供实时搜索能力。**支持任何搜索引擎，不仅限于 Google**。
 
-[![Star History Chart](https://api.star-history.com/svg?repos=web-agent-master/google-search&type=Date)](https://star-history.com/#web-agent-master/google-search&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=princehaku/playwright-search-mcp&type=Date)](https://star-history.com/#princehaku/playwright-search-mcp&Date)
+
+## 支持的搜索引擎
+
+本工具设计为可与**任何搜索引擎**配合使用，已测试的搜索引擎包括：
+
+- **Google** - 全球搜索引擎，具有先进的反机器人检测
+- **Baidu (百度)** - 中国最大的搜索引擎，支持中文搜索
+- **Zhihu (知乎)** - 中国问答平台，具有搜索功能
+- **Bing** - 微软搜索引擎
+- **DuckDuckGo** - 注重隐私的搜索引擎
+- **Yahoo** - 传统网络搜索引擎
+- **以及更多...** - 工具的架构允许轻松适配任何搜索引擎
+
+### 搜索引擎特定功能
+
+- **Google**: 先进的指纹管理和状态恢复，适用于复杂的反机器人系统
+- **Baidu**: 针对中文语言处理和百度特定页面结构进行优化
+- **Zhihu**: 专门处理问答内容和社区驱动的搜索结果
+- **通用**: 可配置的选择器和解析器，适用于任何搜索引擎的页面结构
 
 ## 核心亮点
 
+- **通用搜索引擎支持**: 适用于任何搜索引擎，不仅限于 Google
 - **本地化 SERP API 替代方案**：无需依赖付费的搜索引擎结果 API 服务，完全在本地执行搜索操作
 - **先进的反机器人检测绕过技术**：
   - 智能浏览器指纹管理，模拟真实用户行为
   - 自动保存和恢复浏览器状态，减少验证频率
   - 无头/有头模式智能切换，遇到验证时自动转为有头模式让用户完成验证
   - 多种设备和区域设置随机化，降低被检测风险
-- **原始HTML获取**：能够获取搜索结果页面的原始HTML（已移除CSS和JavaScript），用于分析和调试Google页面结构变化时的提取策略
+- **原始HTML获取**：能够获取搜索结果页面的原始HTML（已移除CSS和JavaScript），用于分析和调试搜索引擎页面结构变化时的提取策略
 - **网页截图功能**：在保存HTML内容的同时，自动捕获并保存完整网页截图
 - **MCP 服务器集成**：为 Claude 等 AI 助手提供实时搜索能力，无需额外 API 密钥
 - **完全开源免费**：所有代码开源，无使用限制，可自由定制和扩展
+- **多语言支持**: 内置支持中文、英文和其他语言，适用于不同的搜索引擎
 
 ## 技术特性
 
 - 使用 TypeScript 开发，提供类型安全和更好的开发体验
 - 基于 Playwright 实现浏览器自动化，支持多种浏览器引擎
+- **多搜索引擎架构**: 可配置的选择器和解析器，适用于不同的搜索引擎
+- **语言感知处理**: 内置支持中文、英文和其他语言
 - 支持命令行参数输入搜索关键词
 - 支持作为 MCP 服务器，为 Claude 等 AI 助手提供搜索能力
 - 返回搜索结果的标题、链接和摘要
@@ -30,13 +53,14 @@
 - 提供详细的日志输出
 - 健壮的错误处理机制
 - 支持保存和恢复浏览器状态，有效避免反机器人检测
+- **跨平台兼容性**: 支持 Windows、macOS 和 Linux
 
 ## 安装
 
 ```bash
 # 从源码安装
-git clone https://github.com/web-agent-master/google-search.git
-cd google-search
+git clone https://github.com/princehaku/playwright-search-mcp.git
+cd playwright-search-mcp
 # 安装依赖
 npm install
 # 或使用 yarn
@@ -73,15 +97,23 @@ pnpm link
 ### 命令行工具
 
 ```bash
-# 直接使用命令行
-google-search "搜索关键词"
+# 在 Google 上搜索（默认）
+playwright-search-cli "搜索关键词"
+
+# 在百度上搜索
+playwright-search-cli --engine baidu "搜索关键词"
+
+# 在知乎上搜索
+playwright-search-cli --engine zhihu "知乎搜索关键词"
+
+# 在 Bing 上搜索
+playwright-search-cli --engine bing "search keywords"
 
 # 使用命令行选项
-google-search --limit 5 --timeout 60000 --no-headless "搜索关键词"
-
+playwright-search-cli --limit 5 --timeout 60000 --no-headless "搜索关键词"
 
 # 或者使用 npx
-npx google-search-cli "搜索关键词"
+npx playwright-search-cli "搜索关键词"
 
 # 开发模式运行
 pnpm dev "搜索关键词"
@@ -90,17 +122,18 @@ pnpm dev "搜索关键词"
 pnpm debug "搜索关键词"
 
 # 获取搜索结果页面的原始HTML
-google-search "搜索关键词" --get-html
+playwright-search-cli "搜索关键词" --get-html
 
 # 获取HTML并保存到文件
-google-search "搜索关键词" --get-html --save-html
+playwright-search-cli "搜索关键词" --get-html --save-html
 
 # 获取HTML并保存到指定文件
-google-search "搜索关键词" --get-html --save-html --html-output "./输出.html"
+playwright-search-cli "搜索关键词" --get-html --save-html --html-output "./输出.html"
 ```
 
 #### 命令行选项
 
+- `-e, --engine <engine>`: 指定搜索引擎 (google, baidu, zhihu, bing, duckduckgo, yahoo) (默认: google)
 - `-l, --limit <number>`: 结果数量限制（默认：10）
 - `-t, --timeout <number>`: 超时时间（毫秒，默认：60000）
 - `--no-headless`: 显示浏览器界面（调试用）
@@ -161,8 +194,8 @@ google-search "搜索关键词" --get-html --save-html --html-output "./输出.h
   "url": "https://www.google.com/",
   "originalHtmlLength": 1292241,
   "cleanedHtmlLength": 458976,
-  "savedPath": "./google-search-html/playwright_automation-2025-04-06T03-30-06-852Z.html",
-  "screenshotPath": "./google-search-html/playwright_automation-2025-04-06T03-30-06-852Z.png",
+  "savedPath": "./playwright-search-html/playwright_automation-2025-04-06T03-30-06-852Z.html",
+  "screenshotPath": "./playwright-search-html/playwright_automation-2025-04-06T03-30-06-852Z.png",
   "htmlPreview": "<!DOCTYPE html><html itemscope=\"\" itemtype=\"http://schema.org/SearchResultsPage\" lang=\"zh-CN\">..."
 }
 ```
@@ -189,9 +222,9 @@ pnpm build
 ```json
 {
   "mcpServers": {
-    "google-search": {
+    "playwright-search": {
       "command": "npx",
-      "args": ["google-search-mcp"]
+      "args": ["playwright-search-mcp"]
     }
   }
 }
@@ -204,9 +237,9 @@ Windows 环境下，也可以使用以下配置方案：
 ```json
 {
   "mcpServers": {
-    "google-search": {
+    "playwright-search": {
       "command": "cmd.exe",
-      "args": ["/c", "npx", "google-search-mcp"]
+      "args": ["/c", "npx", "playwright-search-mcp"]
     }
   }
 }
@@ -217,22 +250,135 @@ Windows 环境下，也可以使用以下配置方案：
 ```json
 {
   "mcpServers": {
-    "google-search": {
+    "playwright-search": {
       "command": "node",
-      "args": ["C:/你的路径/google-search/dist/mcp-server.js"]
+      "args": ["C:/你的路径/playwright-search-mcp/dist/mcp-server.js"]
     }
   }
 }
 ```
 
-注意：对于第二种方法，你必须将`C:/你的路径/google-search`替换为你实际安装google-search包的完整路径。
+注意：对于第二种方法，你必须将`C:/你的路径/playwright-search-mcp`替换为你实际安装playwright-search-mcp包的完整路径。
 
 集成后，可在 Claude 中直接使用搜索功能，如"搜索最新的 AI 研究"。
+
+## 搜索引擎特定使用方法
+
+### Google 搜索
+Google 是默认搜索引擎，提供最全面的搜索结果：
+
+```bash
+# 基本 Google 搜索
+playwright-search-cli "artificial intelligence"
+
+# Google 中文搜索
+playwright-search-cli "人工智能"
+
+# Google 搜索特定选项
+playwright-search-cli --limit 20 --engine google "machine learning"
+```
+
+**特点：**
+- 先进的反机器人检测绕过
+- 全面的搜索结果
+- 支持多种语言
+- 丰富的元数据提取
+
+### 百度搜索
+百度是中国最大的搜索引擎，针对中文内容进行优化：
+
+```bash
+# 百度中文搜索
+playwright-search-cli --engine baidu "人工智能"
+
+# 百度英文搜索
+playwright-search-cli --engine baidu "machine learning"
+
+# 百度搜索特定选项
+playwright-search-cli --engine baidu --limit 15 "深度学习"
+```
+
+**特点：**
+- 针对中文语言处理进行优化
+- 访问中文特定内容和服务
+- 百度百科集成
+- 新闻和学术搜索支持
+
+### 知乎搜索
+知乎是中国问答平台，提供高质量的社区内容：
+
+```bash
+# 知乎问答搜索
+playwright-search-cli --engine zhihu "如何学习编程"
+
+# 知乎特定主题搜索
+playwright-search-cli --engine zhihu "Python入门"
+
+# 知乎英文搜索
+playwright-search-cli --engine zhihu "programming tutorial"
+```
+
+**特点：**
+- 社区驱动的问答内容
+- 高质量的专家回答
+- 基于主题的内容组织
+- 丰富的多媒体内容支持
+
+### Bing 搜索
+微软搜索引擎，具有良好的国际覆盖：
+
+```bash
+# Bing 搜索
+playwright-search-cli --engine bing "web development"
+
+# Bing 搜索特定选项
+playwright-search-cli --engine bing --limit 25 "AI tools"
+```
+
+**特点：**
+- 良好的国际内容覆盖
+- 微软生态系统集成
+- 视觉搜索功能
+- 新闻和图像搜索支持
+
+### DuckDuckGo 搜索
+注重隐私的搜索引擎：
+
+```bash
+# DuckDuckGo 搜索
+playwright-search-cli --engine duckduckgo "privacy tools"
+
+# DuckDuckGo 搜索特定选项
+playwright-search-cli --engine duckduckgo --limit 10 "anonymous browsing"
+```
+
+**特点：**
+- 注重隐私（无跟踪）
+- 即时答案
+- Bang 命令支持
+- 清洁、无广告界面
+
+### 自定义搜索引擎配置
+您可以通过创建自定义选择器和解析器轻松添加对新搜索引擎的支持：
+
+```typescript
+// 示例：添加自定义搜索引擎
+const customEngine = {
+  name: 'my-search-engine',
+  searchUrl: 'https://mysearchengine.com/search?q={query}',
+  selectors: {
+    results: '.search-result',
+    title: '.result-title',
+    link: '.result-link',
+    snippet: '.result-snippet'
+  }
+};
+```
 
 ## 项目结构
 
 ```
-google-search/
+playwright-search-mcp/
 ├── package.json          # 项目配置和依赖
 ├── tsconfig.json         # TypeScript 配置
 ├── src/
@@ -242,7 +388,7 @@ google-search/
 │   └── types.ts          # 类型定义（接口和类型声明）
 ├── dist/                 # 编译后的 JavaScript 文件
 ├── bin/                  # 可执行文件
-│   └── google-search     # 命令行入口脚本
+│   └── playwright-search     # 命令行入口脚本
 ├── README.md             # 项目说明文档
 └── .gitignore            # Git 忽略文件
 ```
@@ -337,8 +483,33 @@ pnpm mcp:build
 - 在 Windows 环境下，首次运行可能需要管理员权限安装 Playwright 浏览器
 - 如果遇到权限问题，可以尝试以管理员身份运行命令提示符或 PowerShell
 - Windows 防火墙可能会阻止 Playwright 浏览器的网络连接，请在提示时允许访问
-- 浏览器状态文件默认保存在用户主目录下的 `.google-search-browser-state.json`
-- 日志文件保存在系统临时目录下的 `google-search-logs` 文件夹中
+- 浏览器状态文件默认保存在用户主目录下的 `.playwright-search-browser-state.json`
+- 日志文件保存在系统临时目录下的 `playwright-search-logs` 文件夹中
+
+## 多搜索引擎优势
+
+### 为什么使用多个搜索引擎？
+
+1. **内容多样性**: 不同的搜索引擎索引不同的内容，提供更全面的结果
+2. **语言优化**: 某些引擎针对特定语言进行了优化（例如，百度针对中文）
+3. **区域覆盖**: 访问区域特定的内容和服务
+4. **反机器人弹性**: 如果一个引擎阻止请求，其他引擎仍然可用
+5. **专业内容**: 某些引擎专注于特定类型的内容（例如，知乎专注于问答）
+
+### 使用场景
+
+- **研究**: 比较多个引擎的结果以获得全面信息
+- **本地化**: 使用区域特定的引擎获取本地内容和服务
+- **备份策略**: 当一个引擎不可用时维护多个搜索选项
+- **内容发现**: 找到仅使用一个搜索引擎可能错过的内容
+- **语言学习**: 通过适当的引擎访问不同语言的内容
+
+### 性能考虑
+
+- 每个搜索引擎可能有不同的响应时间
+- 某些引擎可能需要不同的反机器人策略
+- 浏览器状态管理在引擎之间有所不同
+- 速率限制和阻止策略在不同平台之间有所不同
 
 ## 与商业 SERP API 的对比
 

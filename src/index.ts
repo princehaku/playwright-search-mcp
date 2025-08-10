@@ -30,32 +30,43 @@ const program = new Command();
 
 // 配置命令行选项
 program
-  .name("google-search")
-  .description("基于 Playwright 的 Google 搜索 CLI 工具")
+  .name("playwright-search")
+  .description("基于 Playwright 的搜索引擎 MCP 工具")
   .version(packageJson.version)
   .argument("<query>", "搜索关键词")
   .option("-l, --limit <number>", "结果数量限制", parseInt, 10)
   .option("-t, --timeout <number>", "超时时间(毫秒)", parseInt, 30000)
-  .option("--no-headless", "已废弃: 现在总是先尝试无头模式，如果遇到人机验证会自动切换到有头模式")
+  .option("--no-headless", "以有头模式启动浏览器（默认使用无头模式，遇到人机验证会自动切换为有头模式）")
   .option("--state-file <path>", "浏览器状态文件路径", "./browser-state.json")
   .option("--no-save-state", "不保存浏览器状态")
   .option("--get-html", "获取搜索结果页面的原始HTML而不是解析结果")
   .option("--save-html", "将HTML保存到文件")
   .option("--html-output <path>", "HTML输出文件路径")
   .option("--proxy <url>", "代理服务器(示例: socks5://127.0.0.1:1080)")
+  .option("-e, --engine <engine>", "搜索引擎 (google|baidu|zhihu|xhs)", "google")
   .action(async (query: string, options: CommandOptions & { getHtml?: boolean, saveHtml?: boolean, htmlOutput?: string }) => {
     try {
-      if (options.getHtml) {
+      // 规范化 headless 选项：默认 true，--no-headless 时为 false
+      const normalizedOptions: CommandOptions & { getHtml?: boolean; saveHtml?: boolean; htmlOutput?: string } = {
+        ...options,
+        headless: options.headless === false ? false : true,
+      };
+
+      if (normalizedOptions.getHtml) {
+        if ((normalizedOptions.engine || "google").toLowerCase() !== "google") {
+          console.error("当前 --get-html 仅支持 Google，引擎:" + normalizedOptions.engine);
+          process.exit(2);
+        }
         // 获取HTML
         const htmlResult = await getGoogleSearchPageHtml(
           query,
-          options,
-          options.saveHtml || false,
-          options.htmlOutput
+          normalizedOptions,
+          normalizedOptions.saveHtml || false,
+          normalizedOptions.htmlOutput
         );
 
         // 如果保存了HTML到文件，在输出中包含文件路径信息
-        if (options.saveHtml && htmlResult.savedPath) {
+        if (normalizedOptions.saveHtml && htmlResult.savedPath) {
           console.log(`HTML已保存到文件: ${htmlResult.savedPath}`);
         }
 
@@ -74,7 +85,23 @@ program
         console.log(JSON.stringify(outputResult, null, 2));
       } else {
         // 执行常规搜索
-        const results = await googleSearch(query, options);
+        const engine = (normalizedOptions.engine || "google").toLowerCase();
+        let results;
+        if (engine === "google") {
+          results = await googleSearch(query, normalizedOptions);
+        } else if (engine === "baidu") {
+          const { baiduSearch } = await import("./search.js");
+          results = await baiduSearch(query, normalizedOptions);
+        } else if (engine === "zhihu") {
+          const { zhihuSearch } = await import("./search.js");
+          results = await zhihuSearch(query, normalizedOptions);
+        } else if (engine === "xhs" || engine === "xiaohongshu") {
+          const { xiaohongshuSearch } = await import("./search.js");
+          results = await xiaohongshuSearch(query, normalizedOptions);
+        } else {
+          console.error("未知搜索引擎: " + engine);
+          process.exit(2);
+        }
         
         // 输出结果
         console.log(JSON.stringify(results, null, 2));

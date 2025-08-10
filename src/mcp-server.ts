@@ -3,7 +3,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { googleSearch, getGoogleSearchPageHtml } from "./search.js";
+import { googleSearch, getGoogleSearchPageHtml, baiduSearch, zhihuSearch, xiaohongshuSearch } from "./search.js";
 import * as os from "os";
 import * as path from "path";
 import * as fs from "fs";
@@ -15,14 +15,14 @@ let globalBrowser: Browser | undefined = undefined;
 
 // 创建MCP服务器实例
 const server = new McpServer({
-  name: "google-search-server",
+  name: "playwright-search-server",
   version: "1.0.0",
 });
 
-// 注册Google搜索工具
+// 注册搜索引擎工具
 server.tool(
-  "google-search",
-  "使用Google搜索引擎查询实时网络信息，返回包含标题、链接和摘要的搜索结果。适用于需要获取最新信息、查找特定主题资料、研究当前事件或验证事实的场景。结果以JSON格式返回，包含查询内容和匹配结果列表。",
+  "playwright-search",
+  "使用搜索引擎查询实时网络信息，返回包含标题、链接和摘要的搜索结果。默认使用 Google，可通过 engine 指定 baidu/zhihu/xhs。结果以JSON格式返回，包含查询内容和匹配结果列表。",
   {
     query: z
       .string()
@@ -37,16 +37,25 @@ server.tool(
       .number()
       .optional()
       .describe("搜索操作的超时时间(毫秒) (默认: 30000，可根据网络状况调整)"),
+    engine: z
+      .string()
+      .optional()
+      .describe("搜索引擎 (google|baidu|zhihu|xhs)，默认google"),
+    proxy: z
+      .string()
+      .optional()
+      .describe("代理服务器，例如 socks5://127.0.0.1:1080")
   },
   async (params) => {
     try {
-      const { query, limit, timeout } = params;
-      logger.info({ query }, "执行Google搜索");
+      const { query, limit, timeout, engine: engineRaw, proxy } = params;
+      const engine = (engineRaw || "google").toLowerCase();
+      logger.info({ query, engine }, "执行搜索");
 
       // 获取用户主目录下的状态文件路径
       const stateFilePath = path.join(
         os.homedir(),
-        ".google-search-browser-state.json"
+        ".playwright-search-browser-state.json"
       );
       logger.info({ stateFilePath }, "使用状态文件路径");
 
@@ -62,16 +71,30 @@ server.tool(
         logger.warn(warningMessage);
       }
 
-      // 使用全局浏览器实例执行搜索
-      const results = await googleSearch(
-        query,
-        {
-          limit: limit,
-          timeout: timeout,
-          stateFile: stateFilePath,
-        },
-        globalBrowser
-      );
+      // 当提供 proxy 时，不复用全局浏览器，避免代理配置冲突
+      const browserToUse = proxy ? undefined : globalBrowser;
+
+      // 统一的选项
+      const commonOptions = {
+        limit,
+        timeout,
+        stateFile: stateFilePath,
+        proxy,
+      } as const;
+
+      // 根据引擎路由
+      let results;
+      if (engine === "google") {
+        results = await googleSearch(query, commonOptions, browserToUse);
+      } else if (engine === "baidu") {
+        results = await baiduSearch(query, commonOptions, browserToUse);
+      } else if (engine === "zhihu") {
+        results = await zhihuSearch(query, commonOptions, browserToUse);
+      } else if (engine === "xhs" || engine === "xiaohongshu") {
+        results = await xiaohongshuSearch(query, commonOptions, browserToUse);
+      } else {
+        throw new Error(`未知搜索引擎: ${engine}`);
+      }
 
       // 构建返回结果，包含警告信息
       let responseText = JSON.stringify(results, null, 2);
@@ -108,7 +131,7 @@ server.tool(
 // 启动服务器
 async function main() {
   try {
-    logger.info("正在启动Google搜索MCP服务器...");
+    logger.info("正在启动搜索MCP服务器...");
 
     // 初始化全局浏览器实例
     logger.info("正在初始化全局浏览器实例...");
@@ -148,7 +171,7 @@ async function main() {
     const transport = new StdioServerTransport();
     await server.connect(transport);
 
-    logger.info("Google搜索MCP服务器已启动，等待连接...");
+    logger.info("搜索MCP服务器已启动，等待连接...");
 
     // 设置进程退出时的清理函数
     process.on("exit", async () => {

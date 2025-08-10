@@ -19,13 +19,13 @@ if (process.platform === "win32") {
 }
 
 // 使用系统临时目录，确保跨平台兼容性
-const logDir = path.join(os.tmpdir(), "google-search-logs");
+  const logDir = path.join(os.tmpdir(), "playwright-search-logs");
 if (!fs.existsSync(logDir)) {
   fs.mkdirSync(logDir, { recursive: true });
 }
 
 // 创建日志文件路径
-const logFilePath = path.join(logDir, "google-search.log");
+  const logFilePath = path.join(logDir, "playwright-search.log");
 
 // 主线程多路输出，避免 pretty 在 worker 内导致编码不一致
 const prettyStream = pinoPretty({
