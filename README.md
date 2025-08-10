@@ -13,9 +13,6 @@ This tool is designed to work with **any search engine** and has been tested wit
 - **Google** - Global search engine with advanced anti-bot detection
 - **Baidu (百度)** - China's largest search engine, supporting Chinese language searches
 - **Zhihu (知乎)** - Chinese Q&A platform with search functionality
-- **Bing** - Microsoft's search engine
-- **DuckDuckGo** - Privacy-focused search engine
-- **Yahoo** - Traditional web search engine
 - **And many more...** - The tool's architecture allows easy adaptation to any search engine
 
 ### Search Engine Specific Features
