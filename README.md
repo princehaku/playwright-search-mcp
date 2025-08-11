@@ -13,6 +13,7 @@ This tool is designed to work with **any search engine** and has been tested wit
 - **Google** - Global search engine with advanced anti-bot detection
 - **Baidu (百度)** - China's largest search engine, supporting Chinese language searches
 - **Zhihu (知乎)** - Chinese Q&A platform with search functionality
+- **Xiaohongshu (小红书)** - Chinese lifestyle and social media platform with search functionality
 - **And many more...** - The tool's architecture allows easy adaptation to any search engine
 
 ### Search Engine Specific Features
@@ -20,6 +21,7 @@ This tool is designed to work with **any search engine** and has been tested wit
 - **Google**: Advanced fingerprint management and state restoration for complex anti-bot systems
 - **Baidu**: Optimized for Chinese language processing and Baidu's specific page structure
 - **Zhihu**: Specialized handling for Q&A content and community-driven search results
+- **Xiaohongshu**: Optimized for lifestyle content and social media search results
 - **Universal**: Configurable selectors and parsers for any search engine's page structure
 
 ## Key Features
@@ -105,6 +107,9 @@ playwright-search --engine baidu "搜索关键词"
 # Search on Zhihu
 playwright-search --engine zhihu "知乎搜索关键词"
 
+# Search on Xiaohongshu
+playwright-search --engine xhs "小红书搜索关键词"
+
 # Search on Bing
 playwright-search --engine bing "search keywords"
 
@@ -132,12 +137,12 @@ playwright-search "search keywords" --get-html --save-html --html-output "./outp
 
 #### Command Line Options
 
-- `-e, --engine <engine>`: Search engine to use (google, baidu, zhihu, bing, duckduckgo, yahoo) (default: google)
+- `-e, --engine <engine>`: Search engine to use (google, baidu, zhihu, xhs, bing, duckduckgo, yahoo) (default: google)
 - `-l, --limit <number>`: Result count limit (default: 10)
 - `-t, --timeout <number>`: Timeout in milliseconds (default: 60000)
 - `--no-headless`: Show browser interface (for debugging)
 - `--remote-debugging-port <number>`: Enable remote debugging port (default: 9222)
-- `--state-file <path>`: Browser state file path (default: ./browser-state.json)
+- `--state-file <path>`: Browser state file path (default: ./browser-state.json) - **All search engines share the same state and fingerprint files**
 - `--no-save-state`: Don't save browser state
 - `--get-html`: Retrieve raw HTML of search result page instead of parsing results
 - `--save-html`: Save HTML to file (used with --get-html)
@@ -469,7 +474,8 @@ The tool has built-in robust error handling mechanisms:
 ### State Files
 
 - State files contain browser cookies and storage data, please keep them secure
-- Using state files can effectively avoid Google's anti-bot detection and improve search success rate
+- **All search engines share the same state and fingerprint files**, providing consistent browser identity across different search engines
+- Using state files can effectively avoid anti-bot detection and improve search success rate across all supported search engines
 
 ### MCP Server
 
@@ -482,7 +488,7 @@ The tool has built-in robust error handling mechanisms:
 - In Windows environments, you may need administrator privileges to install Playwright browsers for the first time
 - If you encounter permission issues, try running Command Prompt or PowerShell as administrator
 - Windows Firewall may block Playwright browser network connections; allow access when prompted
-- Browser state files are saved by default in the user's home directory as `.playwright-search-browser-state.json`
+- Browser state and fingerprint files are saved by default in the user's home directory as `browser-state.json` and `browser-state-fingerprint.json`
 - Log files are stored in the system temporary directory under the `playwright-search-logs` folder
 
 ## Multi-Search Engine Advantages
@@ -507,7 +513,7 @@ The tool has built-in robust error handling mechanisms:
 
 - Each search engine may have different response times
 - Some engines may require different anti-bot strategies
-- Browser state management varies between engines
+- Browser state management is consistent across all engines
 - Rate limiting and blocking policies differ across platforms
 
 ## Comparison with Commercial SERP APIs

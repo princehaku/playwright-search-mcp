@@ -13,6 +13,9 @@ export interface SearchResult {
 export interface SearchResponse {
   query: string;
   results: SearchResult[];
+  totalResults: number;
+  searchTime: number;
+  engine: string;
 }
 
 /**

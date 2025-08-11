@@ -11,6 +11,7 @@
 - **Google** - 全球搜索引擎，具有先进的反机器人检测
 - **Baidu (百度)** - 中国最大的搜索引擎，支持中文搜索
 - **Zhihu (知乎)** - 中国问答平台，具有搜索功能
+- **Xiaohongshu (小红书)** - 中国生活方式和社交媒体平台，具有搜索功能
 - **以及更多...** - 工具的架构允许轻松适配任何搜索引擎
 
 ### 搜索引擎特定功能
@@ -18,6 +19,7 @@
 - **Google**: 先进的指纹管理和状态恢复，适用于复杂的反机器人系统
 - **Baidu**: 针对中文语言处理和百度特定页面结构进行优化
 - **Zhihu**: 专门处理问答内容和社区驱动的搜索结果
+- **Xiaohongshu**: 针对生活方式内容和社交媒体搜索结果进行优化
 - **通用**: 可配置的选择器和解析器，适用于任何搜索引擎的页面结构
 
 ## 核心亮点
@@ -103,6 +105,9 @@ playwright-search-cli --engine baidu "搜索关键词"
 # 在知乎上搜索
 playwright-search-cli --engine zhihu "知乎搜索关键词"
 
+# 在小红书上搜索
+playwright-search-cli --engine xhs "小红书搜索关键词"
+
 # 在 Bing 上搜索
 playwright-search-cli --engine bing "search keywords"
 
@@ -130,12 +135,12 @@ playwright-search-cli "搜索关键词" --get-html --save-html --html-output "./
 
 #### 命令行选项
 
-- `-e, --engine <engine>`: 指定搜索引擎 (google, baidu, zhihu, bing, duckduckgo, yahoo) (默认: google)
+- `-e, --engine <engine>`: 指定搜索引擎 (google, baidu, zhihu, xhs, bing, duckduckgo, yahoo) (默认: google)
 - `-l, --limit <number>`: 结果数量限制（默认：10）
 - `-t, --timeout <number>`: 超时时间（毫秒，默认：60000）
 - `--no-headless`: 显示浏览器界面（调试用）
 - `--remote-debugging-port <number>`: 启用远程调试端口（默认：9222）
-- `--state-file <path>`: 浏览器状态文件路径（默认：./browser-state.json）
+- `--state-file <path>`: 浏览器状态文件路径（默认：./browser-state.json） - **所有搜索引擎共用相同的状态和指纹文件**
 - `--no-save-state`: 不保存浏览器状态
 - `--get-html`: 获取搜索结果页面的原始HTML而不是解析结果
 - `--save-html`: 将HTML保存到文件（与--get-html一起使用）
@@ -467,7 +472,8 @@ pnpm mcp:build
 ### 状态文件
 
 - 状态文件包含浏览器 cookies 和存储数据，请妥善保管
-- 使用状态文件可以有效避免 Google 的反机器人检测，提高搜索成功率
+- **所有搜索引擎共用相同的状态和指纹文件**，在不同搜索引擎间提供一致的浏览器身份
+- 使用状态文件可以有效避免反机器人检测，提高所有支持搜索引擎的搜索成功率
 
 ### MCP 服务器
 
@@ -480,7 +486,7 @@ pnpm mcp:build
 - 在 Windows 环境下，首次运行可能需要管理员权限安装 Playwright 浏览器
 - 如果遇到权限问题，可以尝试以管理员身份运行命令提示符或 PowerShell
 - Windows 防火墙可能会阻止 Playwright 浏览器的网络连接，请在提示时允许访问
-- 浏览器状态文件默认保存在用户主目录下的 `.playwright-search-browser-state.json`
+- 浏览器状态和指纹文件默认保存在用户主目录下的 `browser-state.json` 和 `browser-state-fingerprint.json`
 - 日志文件保存在系统临时目录下的 `playwright-search-logs` 文件夹中
 
 ## 多搜索引擎优势
@@ -505,7 +511,7 @@ pnpm mcp:build
 
 - 每个搜索引擎可能有不同的响应时间
 - 某些引擎可能需要不同的反机器人策略
-- 浏览器状态管理在引擎之间有所不同
+- 浏览器状态管理在所有引擎之间保持一致
 - 速率限制和阻止策略在不同平台之间有所不同
 
 ## 与商业 SERP API 的对比

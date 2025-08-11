@@ -21,7 +21,7 @@ if (process.platform === 'win32') {
 }
 
 import { Command } from "commander";
-import { googleSearch, getGoogleSearchPageHtml } from "./search.js";
+import { search } from "./search-refactored.js";
 import { CommandOptions } from "./types.js";
 import packageJson from "../package.json" with { type: "json" };
 
@@ -43,65 +43,16 @@ program
   .option("--save-html", "将HTML保存到文件")
   .option("--html-output <path>", "HTML输出文件路径")
   .option("--proxy <url>", "代理服务器(示例: socks5://127.0.0.1:1080)")
-  .option("-e, --engine <engine>", "搜索引擎 (google|baidu|zhihu|xhs)", "google")
+  .option("-e, --engine <engine>", "搜索引擎 (google|baidu|zhihu|xhs|xiaohongshu)", "google")
   .action(async (query: string, options: CommandOptions & { getHtml?: boolean, saveHtml?: boolean, htmlOutput?: string }) => {
     try {
-      // 规范化 headless 选项：默认 true，--no-headless 时为 false
-      const normalizedOptions: CommandOptions & { getHtml?: boolean; saveHtml?: boolean; htmlOutput?: string } = {
-        ...options,
-        headless: options.headless === false ? false : true,
-      };
-
-      if (normalizedOptions.getHtml) {
-        if ((normalizedOptions.engine || "google").toLowerCase() !== "google") {
-          console.error("当前 --get-html 仅支持 Google，引擎:" + normalizedOptions.engine);
-          process.exit(2);
-        }
-        // 获取HTML
-        const htmlResult = await getGoogleSearchPageHtml(
-          query,
-          normalizedOptions,
-          normalizedOptions.saveHtml || false,
-          normalizedOptions.htmlOutput
-        );
-
-        // 如果保存了HTML到文件，在输出中包含文件路径信息
-        if (normalizedOptions.saveHtml && htmlResult.savedPath) {
-          console.log(`HTML已保存到文件: ${htmlResult.savedPath}`);
-        }
-
-        // 输出结果（不包含完整HTML，避免控制台输出过多）
-        const outputResult = {
-          query: htmlResult.query,
-          url: htmlResult.url,
-          originalHtmlLength: htmlResult.originalHtmlLength, // 原始HTML长度（包含CSS和JavaScript）
-          cleanedHtmlLength: htmlResult.html.length, // 清理后的HTML长度（不包含CSS和JavaScript）
-          savedPath: htmlResult.savedPath,
-          screenshotPath: htmlResult.screenshotPath, // 网页截图保存路径
-          // 只输出HTML的前500个字符作为预览
-          htmlPreview: htmlResult.html.substring(0, 500) + (htmlResult.html.length > 500 ? '...' : '')
-        };
-        
-        console.log(JSON.stringify(outputResult, null, 2));
+      // HTML获取功能暂时移除，专注核心搜索
+      if (options.getHtml) {
+        console.error("--get-html 功能正在重构中，请稍后使用。");
+        process.exit(2);
       } else {
-        // 执行常规搜索
-        const engine = (normalizedOptions.engine || "google").toLowerCase();
-        let results;
-        if (engine === "google") {
-          results = await googleSearch(query, normalizedOptions);
-        } else if (engine === "baidu") {
-          const { baiduSearch } = await import("./search.js");
-          results = await baiduSearch(query, normalizedOptions);
-        } else if (engine === "zhihu") {
-          const { zhihuSearch } = await import("./search.js");
-          results = await zhihuSearch(query, normalizedOptions);
-        } else if (engine === "xhs" || engine === "xiaohongshu") {
-          const { xiaohongshuSearch } = await import("./search.js");
-          results = await xiaohongshuSearch(query, normalizedOptions);
-        } else {
-          console.error("未知搜索引擎: " + engine);
-          process.exit(2);
-        }
+        // 直接使用 commander 解析后的 options
+        const results = await search(query, options);
         
         // 输出结果
         console.log(JSON.stringify(results, null, 2));
