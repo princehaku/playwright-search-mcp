@@ -4,6 +4,7 @@ import { BaseSearchEngine, SearchEngineConfig } from "./base.js";
 import { ChromiumBrowserManager } from "./chromium-manager.js";
 import { FingerprintConfig } from "./browser-manager.js";
 import logger from "../logger.js";
+import { EngineState } from "./browser-manager.js";
 
 // 百度搜索引擎配置
 const BAIDU_CONFIG: SearchEngineConfig = {
@@ -98,8 +99,10 @@ export class BaiduSearchEngine extends BaseSearchEngine {
   private resultParser: BaiduResultParser;
 
   constructor(options: CommandOptions = {}) {
-    super(BAIDU_CONFIG, options);
-    this.browserManager = new ChromiumBrowserManager(options);
+    const browserManager = new ChromiumBrowserManager(options);
+    const engineState = browserManager.loadEngineState(BAIDU_CONFIG.id);
+    super(BAIDU_CONFIG, options, engineState);
+    this.browserManager = browserManager;
     this.resultParser = new BaiduResultParser();
   }
 
@@ -120,12 +123,16 @@ export class BaiduSearchEngine extends BaseSearchEngine {
         logger.info("使用已存在的浏览器实例");
       }
 
-      // 创建浏览器上下文
-      const fingerprint = await this.getFingerprint();
+      // 获取代理和指纹
       const proxy = this.getProxy();
+      const fingerprint =
+        this.engineState.fingerprint ||
+        this.browserManager.getHostMachineConfig(this.options.locale);
+
+      // 创建浏览器上下文
       const context = await this.browserManager.createContext(
         browser,
-        fingerprint,
+        { ...this.engineState, fingerprint },
         proxy
       );
       
@@ -146,10 +153,16 @@ export class BaiduSearchEngine extends BaseSearchEngine {
       // 解析搜索结果
       const results = await this.resultParser.parseResults(page, this.options.limit || 10);
       
-      // 保存状态和指纹
+      // 更新并保存状态
+      const newEngineState: EngineState = {
+        ...this.engineState,
+        fingerprint,
+        proxy,
+      };
       await this.browserManager.saveStateAndFingerprint(
         context,
-        fingerprint,
+        this.config.id,
+        newEngineState,
         this.options.noSaveState
       );
 

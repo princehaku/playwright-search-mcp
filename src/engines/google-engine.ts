@@ -1,6 +1,10 @@
 import { Browser, Page } from "playwright";
 import { SearchResponse, SearchResult, CommandOptions } from "../types.js";
-import { BaseSearchEngine, SearchEngineConfig } from "./base.js";
+import {
+  BaseSearchEngine,
+  SearchEngineConfig,
+  EngineState,
+} from "./base.js";
 import { ChromiumBrowserManager } from "./chromium-manager.js";
 import { FingerprintConfig } from "./browser-manager.js";
 import logger from "../logger.js";
@@ -30,6 +34,12 @@ const GOOGLE_CONFIG: SearchEngineConfig = {
 
 // 全新的智能搜索结果解析器
 class GoogleResultParser {
+  private googleDomain: string;
+
+  constructor(engineState: EngineState) {
+    this.googleDomain = engineState.googleDomain || "https://www.google.com";
+  }
+
   async parseResults(page: Page, limit: number): Promise<SearchResult[]> {
     logger.info("启动Google智能解析器...");
     
@@ -78,12 +88,6 @@ class GoogleResultParser {
       }, limit);
 
       logger.info(`智能解析器提取到 ${results.length} 个结果`);
-
-      if (results.length === 0) {
-        logger.warn("智能解析器未提取到任何结果，将截图用于调试。");
-        await page.screenshot({ path: 'google-screenshot.png', fullPage: true });
-        logger.info("调试截图已保存到 google-screenshot.png");
-      }
       
       return results;
 
@@ -94,6 +98,10 @@ class GoogleResultParser {
       return [];
     }
   }
+
+  public getGoogleDomain(): string {
+    return this.googleDomain;
+  }
 }
 
 // Google搜索引擎实现 - 其他部分保持不变
@@ -102,9 +110,11 @@ export class GoogleSearchEngine extends BaseSearchEngine {
   private resultParser: GoogleResultParser;
 
   constructor(options: CommandOptions = {}) {
-    super(GOOGLE_CONFIG, options);
-    this.browserManager = new ChromiumBrowserManager(options);
-    this.resultParser = new GoogleResultParser();
+    const browserManager = new ChromiumBrowserManager(options);
+    const engineState = browserManager.loadEngineState(GOOGLE_CONFIG.id);
+    super(GOOGLE_CONFIG, options, engineState);
+    this.browserManager = browserManager;
+    this.resultParser = new GoogleResultParser(engineState);
   }
 
   protected async handleAntiBot(page: Page): Promise<void> {
@@ -142,15 +152,19 @@ export class GoogleSearchEngine extends BaseSearchEngine {
         logger.info("使用已存在的浏览器实例");
       }
 
-      // 创建浏览器上下文
-      const fingerprint = await this.getFingerprint();
+      // 获取代理和指纹
       const proxy = this.getProxy();
+      const fingerprint =
+        this.engineState.fingerprint ||
+        this.browserManager.getHostMachineConfig(this.options.locale);
+
+      // 创建浏览器上下文
       const context = await this.browserManager.createContext(
         browser,
-        fingerprint,
+        { ...this.engineState, fingerprint },
         proxy
       );
-      
+
       // 创建新页面
       const page = await context.newPage();
       
@@ -170,11 +184,18 @@ export class GoogleSearchEngine extends BaseSearchEngine {
       
       // 解析搜索结果
       const results = await this.resultParser.parseResults(page, this.options.limit || 10);
-      
-      // 保存状态和指纹
+
+      // 更新并保存状态
+      const newEngineState: EngineState = {
+        ...this.engineState,
+        fingerprint,
+        proxy,
+        googleDomain: this.resultParser.getGoogleDomain(),
+      };
       await this.browserManager.saveStateAndFingerprint(
         context,
-        fingerprint,
+        this.config.id,
+        newEngineState,
         this.options.noSaveState
       );
 

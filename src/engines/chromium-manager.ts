@@ -1,10 +1,12 @@
-import { chromium as playwrightChromium, Browser, BrowserContext } from "playwright";
-import { chromium as chromiumExtra } from "playwright-extra";
+import { Browser, BrowserContext } from "playwright";
+import { chromium as chromiumExtra} from "playwright-extra";
 import StealthPlugin from "puppeteer-extra-plugin-stealth";
 import { BaseBrowserManager, FingerprintConfig } from "./browser-manager.js";
 import { CommandOptions } from "../types.js";
 import logger from "../logger.js";
 import { devices } from "playwright";
+import fs from "fs";
+import { EngineState } from "../types.js";
 
 export class ChromiumBrowserManager extends BaseBrowserManager {
   async createBrowser(): Promise<Browser> {
@@ -31,31 +33,32 @@ export class ChromiumBrowserManager extends BaseBrowserManager {
     return browser;
   }
 
+  // 更新：使用加载的引擎状态创建上下文
   async createContext(
     browser: Browser,
-    fingerprint?: FingerprintConfig,
+    engineState: EngineState,
     proxy?: string
   ): Promise<BrowserContext> {
-    const { storageState, savedState } = this.loadSavedState();
-    
-    // 使用保存的指纹配置或创建新的
-    const hostConfig = fingerprint || savedState.fingerprint || this.getHostMachineConfig();
-    
-    const contextOptions: any = {
-      locale: hostConfig.locale,
-      timezoneId: hostConfig.timezoneId,
-      colorScheme: hostConfig.colorScheme,
-      reducedMotion: hostConfig.reducedMotion,
-      forcedColors: hostConfig.forcedColors,
-      userAgent: hostConfig.userAgent,
-    };
+    const storageStateFile =
+      this.options.stateFile || "./browser-state.json";
+    const storageState = fs.existsSync(storageStateFile)
+      ? storageStateFile
+      : undefined;
 
-    // 如果使用保存的设备配置
-    if (hostConfig.deviceName) {
-      const device = this.getRandomDeviceConfig();
-      contextOptions.viewport = device[1].viewport;
-      contextOptions.userAgent = device[1].userAgent;
-    }
+    // 使用已保存的指纹，或创建新的
+    const fingerprint =
+      engineState.fingerprint ||
+      this.getHostMachineConfig(this.options.locale);
+
+    const contextOptions: any = {
+      locale: fingerprint.locale,
+      timezoneId: fingerprint.timezoneId,
+      colorScheme: fingerprint.colorScheme,
+      reducedMotion: fingerprint.reducedMotion,
+      forcedColors: fingerprint.forcedColors,
+      userAgent: fingerprint.userAgent,
+      viewport: fingerprint.viewport,
+    };
 
     // 设置代理
     if (proxy) {
@@ -67,8 +70,23 @@ export class ChromiumBrowserManager extends BaseBrowserManager {
       contextOptions.storageState = storageState;
     }
 
-    logger.info({ fingerprint: hostConfig }, "正在创建浏览器上下文...");
+    logger.info({ fingerprint }, "正在创建浏览器上下文...");
     const context = await browser.newContext(contextOptions);
+
+    // 拦截iframe请求，这是Google检测机器人的常用手段
+    await context.route("**/*", (route, request) => {
+      if (request.frame().parentFrame()) {
+        // 如果请求来自iframe，则中止它
+        route.abort();
+      } else {
+        // 否则，正常处理请求
+        route.continue();
+      }
+    });
+
+    // 导航到 about:blank 以防止stealth插件打开意外页面
+    const page = await context.newPage();
+    await page.goto("about:blank");
 
     // 设置页面超时
     context.setDefaultTimeout(this.options.timeout || 60000);

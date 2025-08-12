@@ -45,3 +45,10 @@ export interface HtmlResponse {
   screenshotPath?: string; // 可选，网页截图保存路径
   originalHtmlLength?: number; // 原始HTML长度（包含CSS和JavaScript）
 }
+
+// 每个引擎的独立状态
+export interface EngineState {
+  fingerprint?: any;
+  proxy?: string;
+  googleDomain?: string; // 特定于Google的配置
+}

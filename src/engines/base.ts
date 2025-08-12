@@ -1,5 +1,10 @@
 import { Browser, BrowserContext, Page } from "playwright";
-import { SearchResponse, SearchResult, CommandOptions } from "../types.js";
+import {
+  SearchResponse,
+  SearchResult,
+  CommandOptions,
+  EngineState,
+} from "../types.js";
 import logger from "../logger.js";
 import * as fs from "fs/promises";
 import * as path from "path";
@@ -25,6 +30,9 @@ export interface SearchEngineConfig {
   };
 }
 
+// 导出EngineState以供其他模块使用
+export type { EngineState };
+
 // 搜索结果解析器接口
 export interface ResultParser {
   parseResults(page: Page, limit: number): Promise<SearchResult[]>;
@@ -34,18 +42,30 @@ export interface ResultParser {
 export abstract class BaseSearchEngine {
   protected config: SearchEngineConfig;
   protected options: CommandOptions;
+  protected engineState: EngineState; // 新增：存储当前引擎的状态
 
-  constructor(config: SearchEngineConfig, options: CommandOptions = {}) {
+  constructor(
+    config: SearchEngineConfig,
+    options: CommandOptions = {},
+    engineState: EngineState = {}
+  ) {
     this.config = config;
     this.options = options;
+    this.engineState = engineState;
   }
 
-  // 新增方法：根据引擎配置获取代理
+  // 更新：根据引擎配置获取代理
   protected getProxy(): string | undefined {
     const engineId = this.config.id;
+    // 命令行传入的代理优先级更高
     if (this.options.engineProxy && this.options.engineProxy[engineId]) {
       return this.options.engineProxy[engineId];
     }
+    // 其次是保存的状态中的代理
+    if (this.engineState.proxy) {
+      return this.engineState.proxy;
+    }
+    // 最后是全局代理
     return this.options.proxy;
   }
 
@@ -75,31 +95,6 @@ export abstract class BaseSearchEngine {
         logger.error({ error: e }, "Failed to save HTML file.");
       }
     }
-  }
-
-  // 通用方法：创建浏览器上下文
-  protected async createBrowserContext(
-    browser: Browser,
-    fingerprint?: any
-  ): Promise<BrowserContext> {
-    const contextOptions: any = {
-      locale: this.options.locale || "zh-CN",
-      timezoneId: fingerprint?.timezoneId || "Asia/Shanghai",
-      colorScheme: fingerprint?.colorScheme || "light",
-      reducedMotion: fingerprint?.reducedMotion || "no-preference",
-      forcedColors: fingerprint?.forcedColors || "none",
-    };
-
-    if (fingerprint?.deviceName) {
-      contextOptions.viewport = fingerprint.viewport;
-      contextOptions.userAgent = fingerprint.userAgent;
-    }
-
-    if (this.options.proxy) {
-      contextOptions.proxy = this.parseProxyConfig(this.options.proxy);
-    }
-
-    return await browser.newContext(contextOptions);
   }
 
   // 通用方法：导航到搜索页面
