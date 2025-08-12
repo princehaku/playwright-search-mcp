@@ -191,8 +191,5 @@ export abstract class BaseSearchEngine {
     await page.evaluate(() => {
       window.scrollTo(0, Math.random() * 100);
     });
-
-    // 等待随机时间
-    await page.waitForTimeout(this.getRandomDelay(60000, 90000));
   }
 }

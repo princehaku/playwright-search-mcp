@@ -45,7 +45,7 @@ class GoogleResultParser {
     
     try {
       // 等待页面加载完成
-      await page.waitForLoadState('domcontentloaded', { timeout: 15000 });
+      await page.waitForLoadState('networkidle', { timeout: 15000 });
       logger.info("页面网络稳定，开始执行页面评估...");
 
       const results = await page.evaluate((limit) => {
@@ -93,9 +93,7 @@ class GoogleResultParser {
 
     } catch (e) {
       logger.error({ error: e }, "智能解析时发生严重错误");
-      await page.screenshot({ path: 'google-error-screenshot.png', fullPage: true });
-      logger.info("错误截图已保存到 google-error-screenshot.png");
-      return [];
+      throw e; // 重新抛出错误，让调用者知道解析失败
     }
   }
 
@@ -120,18 +118,25 @@ export class GoogleSearchEngine extends BaseSearchEngine {
   protected async handleAntiBot(page: Page): Promise<void> {
     const recaptchaSelector = 'iframe[src*="recaptcha"]';
     try {
-      const recaptchaFrame = await page.waitForSelector(recaptchaSelector, { timeout: 5000 });
-      if (recaptchaFrame) {
+      // 使用 locator().count() 来避免等待
+      const recaptchaCount = await page.locator(recaptchaSelector).count();
+      
+      if (recaptchaCount > 0) {
         logger.warn("检测到Google reCAPTCHA，需要人机验证。");
-        // 在实际应用中，这里可以集成一个验证码处理服务
-        // 例如 2captcha, 或触发一个通知让用户手动解决
-        await super.handleAntiBot(page);
+        // 调用基类方法，它包含更长的等待和随机操作
+        await super.handleAntiBot(page); 
         // 抛出错误或等待一个外部信号
         throw new Error("需要人工干预来解决reCAPTCHA。");
+      } else {
+        logger.info("未检测到reCAPTCHA，继续执行。");
+        // 不执行任何操作，直接返回
       }
     } catch (error) {
-        // 未找到验证码，属于正常流程，调用基类方法
-        logger.info("未检测到reCAPTCHA");
+      if (error instanceof Error && error.message.includes("reCAPTCHA")) {
+        throw error;
+      }
+      // 对于其他错误，记录下来但允许程序继续
+      logger.error({ error }, "在handleAntiBot中发生未知错误");
     }
   }
 
