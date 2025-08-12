@@ -1,14 +1,20 @@
-import { chromium, Browser, BrowserContext } from "playwright";
+import { chromium as playwrightChromium, Browser, BrowserContext } from "playwright";
+import { chromium as chromiumExtra } from "playwright-extra";
+import StealthPlugin from "playwright-extra/dist/plugins/stealth/index.js";
 import { BaseBrowserManager, FingerprintConfig } from "./browser-manager.js";
 import { CommandOptions } from "../types.js";
 import logger from "../logger.js";
+import { devices } from "playwright";
 
-// Chromium浏览器管理器
 export class ChromiumBrowserManager extends BaseBrowserManager {
   async createBrowser(): Promise<Browser> {
-    logger.info("正在启动Chromium浏览器...");
+    logger.info("正在启动集成了Stealth插件的Chromium浏览器...");
     
-    const browser = await chromium.launch({
+    // 使用 playwright-extra 来添加 stealth 插件
+    chromiumExtra.use(StealthPlugin());
+
+    // 使用 playwright-extra 启动浏览器
+    const browser = await chromiumExtra.launch({
       headless: this.options.headless,
       args: [
         "--no-sandbox",
@@ -21,7 +27,7 @@ export class ChromiumBrowserManager extends BaseBrowserManager {
       ],
     });
 
-    logger.info("Chromium浏览器启动成功");
+    logger.info("集成了Stealth插件的Chromium浏览器启动成功");
     return browser;
   }
 
@@ -47,11 +53,6 @@ export class ChromiumBrowserManager extends BaseBrowserManager {
       contextOptions.userAgent = device[1].userAgent;
     }
 
-    // 设置代理
-    if (this.options.proxy) {
-      contextOptions.proxy = this.parseProxyConfig(this.options.proxy);
-    }
-
     // 设置存储状态
     if (storageState) {
       contextOptions.storageState = storageState;
@@ -66,20 +67,10 @@ export class ChromiumBrowserManager extends BaseBrowserManager {
     return context;
   }
 
-  // 解析代理配置
-  private parseProxyConfig(proxyUrl: string): any {
-    try {
-      const u = new URL(proxyUrl);
-      const server = `${u.protocol}//${u.hostname}${u.port ? ":" + u.port : ""}`;
-      const cfg: { server: string; username?: string; password?: string } = {
-        server,
-      };
-      if (u.username) cfg.username = decodeURIComponent(u.username);
-      if (u.password) cfg.password = decodeURIComponent(u.password);
-      return cfg;
-    } catch (e) {
-      logger.warn({ proxy: proxyUrl }, "代理URL解析失败，按原样传递给 Playwright");
-      return { server: proxyUrl };
-    }
+  getRandomDeviceConfig(): [string, any] {
+    const deviceNames = Object.keys(devices);
+    const randomDeviceName =
+      deviceNames[Math.floor(Math.random() * deviceNames.length)];
+    return [randomDeviceName, devices[randomDeviceName]];
   }
 }

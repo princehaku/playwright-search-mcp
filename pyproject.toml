@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "playwright-search-py"
+version = "0.1.0"
+description = "基于 Playwright 的搜索引擎 MCP 工具 (Python 重构版)"
+authors = ["princehaku"]
+readme = "README.md"
+packages = [{include = "playwright_search", from = "src_py"}]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+playwright = ">=1.40.0"
+playwright-stealth = "^1.0.6" # 用于替换 playwright-extra 的 stealth 插件
+pydantic = "^2.0" # 用于替换 zod
+click = "^8.1" # 用于替换 commander
+loguru = "^0.7.2" # 用于替换 pino
+
+[tool.poetry.dev-dependencies]
+pytest = "^8.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

@@ -763,12 +763,19 @@ pkce-challenge@^5.0.0:
   resolved "https://registry.npmmirror.com/pkce-challenge/-/pkce-challenge-5.0.0.tgz"
   integrity sha512-ueGLflrrnvwB3xuo/uGob5pd5FN7l0MsLf0Z87o/UQmRtwjvfylfc9MurIxRAWywCYTgrvpXBcqjV4OfCYGCIQ==
 
-playwright-core@1.54.2:
+playwright-core@*, playwright-core@1.54.2:
   version "1.54.2"
   resolved "https://registry.npmmirror.com/playwright-core/-/playwright-core-1.54.2.tgz"
   integrity sha512-n5r4HFbMmWsB4twG7tJLDN9gmBUeSPcsBZiWSE4DnYz9mJMAFqr2ID7+eGC9kpEnxExJ1epttwR59LEWCk8mtA==
 
-playwright@^1.50.1:
+playwright-extra@^4.3.6:
+  version "4.3.6"
+  resolved "https://registry.npmmirror.com/playwright-extra/-/playwright-extra-4.3.6.tgz"
+  integrity sha512-q2rVtcE8V8K3vPVF1zny4pvwZveHLH8KBuVU2MoE3Jw4OKVoBWsHI9CH9zPydovHHOCDxjGN2Vg+2m644q3ijA==
+  dependencies:
+    debug "^4.3.4"
+
+playwright@*, playwright@^1.50.1:
   version "1.54.2"
   resolved "https://registry.npmmirror.com/playwright/-/playwright-1.54.2.tgz"
   integrity sha512-Hu/BMoA1NAdRUuulyvQC0pEqZ4vQbGfn8f7wPXcnqQmM+zct9UliKxsIkLNmz/ku7LElUNqmaiv1TG/aL5ACsw==
