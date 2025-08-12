@@ -1,6 +1,8 @@
 import { Browser, BrowserContext, Page } from "playwright";
 import { SearchResponse, SearchResult, CommandOptions } from "../types.js";
 import logger from "../logger.js";
+import * as fs from "fs/promises";
+import * as path from "path";
 
 // 搜索引擎配置接口
 export interface SearchEngineConfig {
@@ -43,6 +45,27 @@ export abstract class BaseSearchEngine {
     headless: boolean,
     existingBrowser?: Browser
   ): Promise<SearchResponse>;
+
+  // 通用方法：保存HTML内容
+  protected async saveHtml(page: Page, query: string): Promise<void> {
+    if (this.options.saveHtml) {
+      try {
+        const html = await page.content();
+        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+        const filename = `${this.config.name}-${query.replace(
+          /\s/g,
+          "_"
+        )}-${timestamp}.html`;
+        const dir = "search_results";
+        await fs.mkdir(dir, { recursive: true });
+        const filepath = path.join(dir, filename);
+        await fs.writeFile(filepath, html);
+        logger.info({ filepath }, "HTML content saved.");
+      } catch (e) {
+        logger.error({ error: e }, "Failed to save HTML file.");
+      }
+    }
+  }
 
   // 通用方法：创建浏览器上下文
   protected async createBrowserContext(

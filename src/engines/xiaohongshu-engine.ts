@@ -11,10 +11,10 @@ const XIAOHONGSHU_CONFIG: SearchEngineConfig = {
   baseUrl: "https://www.xiaohongshu.com",
   searchPath: "/search_result?keyword=",
   selectors: {
-    resultContainer: "div.note-item",
-    title: "div.title",
-    link: "a.note-link",
-    snippet: "div.desc",
+    resultContainer: "section.note-item",
+    title: "a.title",
+    link: 'a[href^="/explore/"]',
+    snippet: ".author .name",
   },
   headers: {
     "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
@@ -58,6 +58,8 @@ class XiaohongshuResultParser {
           
           // 验证链接
           if (!this.isValidXiaohongshuLink(href)) continue;
+
+          const link = href.startsWith("/") ? `${XIAOHONGSHU_CONFIG.baseUrl}${href}` : href;
           
           // 提取摘要
           const snippetElement = await element.$(XIAOHONGSHU_CONFIG.selectors.snippet);
@@ -65,7 +67,7 @@ class XiaohongshuResultParser {
           
           results.push({
             title: this.cleanText(title),
-            link: this.cleanText(href),
+            link: link,
             snippet: this.cleanText(snippet),
           });
         } catch (e) {
@@ -141,6 +143,8 @@ export class XiaohongshuSearchEngine extends BaseSearchEngine {
       // 等待页面加载
       await this.waitForPageLoad(page);
       
+      await this.saveHtml(page, query);
+      
       // 解析搜索结果
       const results = await this.resultParser.parseResults(page, this.options.limit || 10);
       
@@ -176,6 +180,41 @@ export class XiaohongshuSearchEngine extends BaseSearchEngine {
       if (!browserWasProvided && browser) {
         await browser.close();
       }
+    }
+  }
+
+  protected async navigateToSearchPage(
+    page: Page,
+    query: string
+  ): Promise<void> {
+    const searchUrl = this.buildSearchUrl(query);
+    logger.info({ url: searchUrl }, `正在导航到${this.config.name}搜索页面`);
+    await page.goto(searchUrl, { waitUntil: "domcontentloaded" });
+  }
+
+  protected async handleAntiBot(page: Page): Promise<void> {
+    try {
+      const loginPopupSelector1 = 'div:text("登录后查看搜索结果")';
+      const loginPopupSelector2 =
+        'div:text-matches("可用\\\\s*小红书\\\\s*或\\\\s*微信\\\\s*扫码")';
+
+      // Wait for either of the selectors to be visible
+      await Promise.any([
+        page.waitForSelector(loginPopupSelector1, {
+          state: "visible",
+          timeout: 5000,
+        }),
+        page.waitForSelector(loginPopupSelector2, {
+          state: "visible",
+          timeout: 5000,
+        }),
+      ]);
+
+      logger.warn("检测到小红书登录弹窗，搜索可能无法继续。");
+    } catch (error) {
+      // If neither selector is found within the timeout, proceed.
+      logger.info("未检测到小红书登录弹窗，执行通用反爬虫措施。");
+      await super.handleAntiBot(page);
     }
   }
 

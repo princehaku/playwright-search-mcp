@@ -1,6 +1,6 @@
 import { chromium as playwrightChromium, Browser, BrowserContext } from "playwright";
 import { chromium as chromiumExtra } from "playwright-extra";
-import StealthPlugin from "playwright-extra/dist/plugins/stealth/index.js";
+import StealthPlugin from "puppeteer-extra-plugin-stealth";
 import { BaseBrowserManager, FingerprintConfig } from "./browser-manager.js";
 import { CommandOptions } from "../types.js";
 import logger from "../logger.js";

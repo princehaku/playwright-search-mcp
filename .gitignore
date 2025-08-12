@@ -35,4 +35,4 @@ browser-state-fingerprint.json
 src/mcp-server.ts
 .iter_plan.md
 .iter_process.md
-playwright-search-html/
+search_results/

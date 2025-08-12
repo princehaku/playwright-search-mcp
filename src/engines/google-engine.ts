@@ -159,6 +159,8 @@ export class GoogleSearchEngine extends BaseSearchEngine {
       // 处理反机器人检测
       await this.handleAntiBot(page);
       
+      await this.saveHtml(page, query);
+
       // 解析器现在自己处理等待，移除这里的冗余等待
       // await this.waitForPageLoad(page);
       

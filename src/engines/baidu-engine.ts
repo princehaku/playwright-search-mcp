@@ -138,6 +138,8 @@ export class BaiduSearchEngine extends BaseSearchEngine {
       // 等待页面加载
       await this.waitForPageLoad(page);
       
+      await this.saveHtml(page, query);
+      
       // 解析搜索结果
       const results = await this.resultParser.parseResults(page, this.options.limit || 10);
       
