@@ -6,6 +6,7 @@ import * as path from "path";
 
 // 搜索引擎配置接口
 export interface SearchEngineConfig {
+  id: string; // 搜索引擎的唯一标识符
   name: string;
   baseUrl: string;
   searchPath: string;
@@ -37,6 +38,15 @@ export abstract class BaseSearchEngine {
   constructor(config: SearchEngineConfig, options: CommandOptions = {}) {
     this.config = config;
     this.options = options;
+  }
+
+  // 新增方法：根据引擎配置获取代理
+  protected getProxy(): string | undefined {
+    const engineId = this.config.id;
+    if (this.options.engineProxy && this.options.engineProxy[engineId]) {
+      return this.options.engineProxy[engineId];
+    }
+    return this.options.proxy;
   }
 
   // 抽象方法：子类必须实现
@@ -136,23 +146,6 @@ export abstract class BaseSearchEngine {
     }
   }
 
-  // 通用方法：解析代理配置
-  protected parseProxyConfig(proxyUrl: string): any {
-    try {
-      const u = new URL(proxyUrl);
-      const server = `${u.protocol}//${u.hostname}${u.port ? ":" + u.port : ""}`;
-      const cfg: { server: string; username?: string; password?: string } = {
-        server,
-      };
-      if (u.username) cfg.username = decodeURIComponent(u.username);
-      if (u.password) cfg.password = decodeURIComponent(u.password);
-      return cfg;
-    } catch (e) {
-      logger.warn({ proxy: proxyUrl }, "代理URL解析失败");
-      return { server: proxyUrl };
-    }
-  }
-
   // 通用方法：获取随机延迟
   protected getRandomDelay(min: number, max: number): number {
     return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -205,6 +198,6 @@ export abstract class BaseSearchEngine {
     });
 
     // 等待随机时间
-    await page.waitForTimeout(this.getRandomDelay(1000, 3000));
+    await page.waitForTimeout(this.getRandomDelay(60000, 90000));
   }
 }

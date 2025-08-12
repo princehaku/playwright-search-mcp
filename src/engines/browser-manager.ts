@@ -1,6 +1,7 @@
 import { chromium, Browser, BrowserContext, devices } from "playwright";
 import * as fs from "fs";
 import * as path from "path";
+import * as os from "os";
 import { CommandOptions } from "../types.js";
 import logger from "../logger.js";
 import { ChromiumBrowserManager } from "./chromium-manager.js";
@@ -31,13 +32,22 @@ export abstract class BaseBrowserManager {
 
   constructor(options: CommandOptions = {}) {
     this.options = options;
-    this.stateFile = options.stateFile || "./browser-state.json";
-    this.fingerprintFile = this.stateFile.replace(".json", "-fingerprint.json");
+    const defaultStateDir = path.join(os.homedir(), ".playwright-search");
+    this.stateFile =
+      options.stateFile || path.join(defaultStateDir, "browser-state.json");
+    this.fingerprintFile = this.stateFile.replace(
+      ".json",
+      "-fingerprint.json"
+    );
   }
 
   // 抽象方法：子类必须实现
   abstract createBrowser(): Promise<Browser>;
-  abstract createContext(browser: Browser, fingerprint?: FingerprintConfig): Promise<BrowserContext>;
+  abstract createContext(
+    browser: Browser,
+    fingerprint?: FingerprintConfig,
+    proxy?: string
+  ): Promise<BrowserContext>;
 
   // 通用方法：加载保存的状态
   protected loadSavedState(): { storageState?: string; savedState: SavedState } {
@@ -154,5 +164,23 @@ export abstract class BaseBrowserManager {
   // 通用方法：获取随机延迟时间
   protected getRandomDelay(min: number, max: number): number {
     return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+  // 通用方法：解析代理配置
+  protected parseProxyConfig(proxyUrl: string): any {
+    try {
+      const u = new URL(proxyUrl);
+      const server = `${u.protocol}//${u.hostname}${
+        u.port ? ":" + u.port : ""
+      }`;
+      const cfg: { server: string; username?: string; password?: string } = {
+        server,
+      };
+      if (u.username) cfg.username = decodeURIComponent(u.username);
+      if (u.password) cfg.password = decodeURIComponent(u.password);
+      return cfg;
+    } catch (e) {
+      logger.warn({ proxy: proxyUrl }, "代理URL解析失败");
+      return { server: proxyUrl };
+    }
   }
 }

@@ -8,6 +8,7 @@ import fs from "fs";
 
 // Google搜索引擎配置
 const GOOGLE_CONFIG: SearchEngineConfig = {
+  id: "google",
   name: "Google",
   baseUrl: "https://www.google.com",
   searchPath: "/search?q=",
@@ -114,15 +115,13 @@ export class GoogleSearchEngine extends BaseSearchEngine {
         logger.warn("检测到Google reCAPTCHA，需要人机验证。");
         // 在实际应用中，这里可以集成一个验证码处理服务
         // 例如 2captcha, 或触发一个通知让用户手动解决
-        await page.screenshot({ path: 'google-recaptcha.png', fullPage: true });
-        logger.info("已截取reCAPTCHA页面，保存为 google-recaptcha.png");
+        await super.handleAntiBot(page);
         // 抛出错误或等待一个外部信号
         throw new Error("需要人工干预来解决reCAPTCHA。");
       }
     } catch (error) {
         // 未找到验证码，属于正常流程，调用基类方法
-        logger.info("未检测到reCAPTCHA，执行标准反机器人流程。");
-        await super.handleAntiBot(page);
+        logger.info("未检测到reCAPTCHA");
     }
   }
 
@@ -145,7 +144,12 @@ export class GoogleSearchEngine extends BaseSearchEngine {
 
       // 创建浏览器上下文
       const fingerprint = await this.getFingerprint();
-      const context = await this.browserManager.createContext(browser, fingerprint);
+      const proxy = this.getProxy();
+      const context = await this.browserManager.createContext(
+        browser,
+        fingerprint,
+        proxy
+      );
       
       // 创建新页面
       const page = await context.newPage();

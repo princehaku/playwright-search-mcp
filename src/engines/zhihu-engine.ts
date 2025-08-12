@@ -7,9 +7,10 @@ import logger from "../logger.js";
 
 // 知乎搜索引擎配置
 const ZHIHU_CONFIG: SearchEngineConfig = {
+  id: "zhihu",
   name: "知乎",
   baseUrl: "https://www.zhihu.com",
-  searchPath: "/search?q=",
+  searchPath: "/search?type=content&q=",
   selectors: {
     resultContainer: "div.Search-result",
     title: "h2.ContentItem-title a",
@@ -123,7 +124,12 @@ export class ZhihuSearchEngine extends BaseSearchEngine {
 
       // 创建浏览器上下文
       const fingerprint = await this.getFingerprint();
-      const context = await this.browserManager.createContext(browser, fingerprint);
+      const proxy = this.getProxy();
+      const context = await this.browserManager.createContext(
+        browser,
+        fingerprint,
+        proxy
+      );
       
       // 创建新页面
       const page = await context.newPage();

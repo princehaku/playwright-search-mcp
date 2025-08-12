@@ -31,7 +31,11 @@ export class ChromiumBrowserManager extends BaseBrowserManager {
     return browser;
   }
 
-  async createContext(browser: Browser, fingerprint?: FingerprintConfig): Promise<BrowserContext> {
+  async createContext(
+    browser: Browser,
+    fingerprint?: FingerprintConfig,
+    proxy?: string
+  ): Promise<BrowserContext> {
     const { storageState, savedState } = this.loadSavedState();
     
     // 使用保存的指纹配置或创建新的
@@ -53,6 +57,11 @@ export class ChromiumBrowserManager extends BaseBrowserManager {
       contextOptions.userAgent = device[1].userAgent;
     }
 
+    // 设置代理
+    if (proxy) {
+      contextOptions.proxy = this.parseProxyConfig(proxy);
+    }
+
     // 设置存储状态
     if (storageState) {
       contextOptions.storageState = storageState;
@@ -65,12 +74,5 @@ export class ChromiumBrowserManager extends BaseBrowserManager {
     context.setDefaultTimeout(this.options.timeout || 60000);
 
     return context;
-  }
-
-  getRandomDeviceConfig(): [string, any] {
-    const deviceNames = Object.keys(devices);
-    const randomDeviceName =
-      deviceNames[Math.floor(Math.random() * deviceNames.length)];
-    return [randomDeviceName, devices[randomDeviceName]];
   }
 }

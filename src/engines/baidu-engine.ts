@@ -7,6 +7,7 @@ import logger from "../logger.js";
 
 // 百度搜索引擎配置
 const BAIDU_CONFIG: SearchEngineConfig = {
+  id: "baidu",
   name: "百度",
   baseUrl: "https://www.baidu.com",
   searchPath: "/s?wd=",
@@ -14,7 +15,7 @@ const BAIDU_CONFIG: SearchEngineConfig = {
     resultContainer: "div.result",
     title: "h3.t a",
     link: "h3.t a",
-    snippet: "div.c-abstract",
+    snippet: '[data-module="abstract"], [data-module="sc_p"]',
   },
   headers: {
     "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
@@ -121,7 +122,12 @@ export class BaiduSearchEngine extends BaseSearchEngine {
 
       // 创建浏览器上下文
       const fingerprint = await this.getFingerprint();
-      const context = await this.browserManager.createContext(browser, fingerprint);
+      const proxy = this.getProxy();
+      const context = await this.browserManager.createContext(
+        browser,
+        fingerprint,
+        proxy
+      );
       
       // 创建新页面
       const page = await context.newPage();
@@ -131,9 +137,6 @@ export class BaiduSearchEngine extends BaseSearchEngine {
       
       // 导航到搜索页面
       await this.navigateToSearchPage(page, query);
-      
-      // 处理反机器人检测
-      await this.handleAntiBot(page);
       
       // 等待页面加载
       await this.waitForPageLoad(page);

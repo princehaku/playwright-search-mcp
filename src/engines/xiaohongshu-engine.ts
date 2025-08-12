@@ -6,7 +6,8 @@ import { FingerprintConfig } from "./browser-manager.js";
 import logger from "../logger.js";
 
 // 小红书搜索引擎配置
-const XIAOHONGSHU_CONFIG: SearchEngineConfig = {
+const XHS_CONFIG: SearchEngineConfig = {
+  id: "xhs",
   name: "小红书",
   baseUrl: "https://www.xiaohongshu.com",
   searchPath: "/search_result?keyword=",
@@ -34,20 +35,20 @@ class XiaohongshuResultParser {
     
     try {
       // 等待搜索结果加载
-      await page.waitForSelector(XIAOHONGSHU_CONFIG.selectors.resultContainer, {
+      await page.waitForSelector(XHS_CONFIG.selectors.resultContainer, {
         timeout: 20000,
       });
 
       // 获取所有搜索结果
-      const resultElements = await page.$$(XIAOHONGSHU_CONFIG.selectors.resultContainer);
+      const resultElements = await page.$$(XHS_CONFIG.selectors.resultContainer);
       
       for (let i = 0; i < Math.min(resultElements.length, limit); i++) {
         const element = resultElements[i];
         
         try {
           // 提取标题和链接
-          const titleElement = await element.$(XIAOHONGSHU_CONFIG.selectors.title);
-          const linkElement = await element.$(XIAOHONGSHU_CONFIG.selectors.link);
+          const titleElement = await element.$(XHS_CONFIG.selectors.title);
+          const linkElement = await element.$(XHS_CONFIG.selectors.link);
           
           if (!titleElement || !linkElement) continue;
           
@@ -59,10 +60,10 @@ class XiaohongshuResultParser {
           // 验证链接
           if (!this.isValidXiaohongshuLink(href)) continue;
 
-          const link = href.startsWith("/") ? `${XIAOHONGSHU_CONFIG.baseUrl}${href}` : href;
+          const link = href.startsWith("/") ? `${XHS_CONFIG.baseUrl}${href}` : href;
           
           // 提取摘要
-          const snippetElement = await element.$(XIAOHONGSHU_CONFIG.selectors.snippet);
+          const snippetElement = await element.$(XHS_CONFIG.selectors.snippet);
           const snippet = snippetElement ? await snippetElement.textContent() : "";
           
           results.push({
@@ -102,7 +103,7 @@ export class XiaohongshuSearchEngine extends BaseSearchEngine {
   private resultParser: XiaohongshuResultParser;
 
   constructor(options: CommandOptions = {}) {
-    super(XIAOHONGSHU_CONFIG, options);
+    super(XHS_CONFIG, options);
     this.browserManager = new ChromiumBrowserManager(options);
     this.resultParser = new XiaohongshuResultParser();
   }
@@ -126,7 +127,12 @@ export class XiaohongshuSearchEngine extends BaseSearchEngine {
 
       // 创建浏览器上下文
       const fingerprint = await this.getFingerprint();
-      const context = await this.browserManager.createContext(browser, fingerprint);
+      const proxy = this.getProxy();
+      const context = await this.browserManager.createContext(
+        browser,
+        fingerprint,
+        proxy
+      );
       
       // 创建新页面
       const page = await context.newPage();
