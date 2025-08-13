@@ -43,11 +43,12 @@ export class ChromiumBrowserManager extends BaseBrowserManager {
         "--disable-dev-shm-usage",
         "--disable-accelerated-2d-canvas",
         "--no-first-run",
+        "--disable-blink-features=AutomationControlled"
       ],
     };
-    
-    if (fingerprint.proxy) {
-      contextOptions.proxy = fingerprint.proxy;
+
+    if (engineState.proxy) {
+      contextOptions.proxy = this.parseProxyConfig(engineState.proxy);
     }
 
     if (options.proxy) {
@@ -59,7 +60,10 @@ export class ChromiumBrowserManager extends BaseBrowserManager {
       contextOptions
     );
 
-    logger.info("持久化上下文启动成功");
+    logger.info({
+      engineState,
+      contextOptions,
+    }, `持久化上下文启动成功`);
     return context;
   }
 }

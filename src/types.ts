@@ -50,5 +50,4 @@ export interface HtmlResponse {
 export interface EngineState {
   fingerprint?: any;
   proxy?: string;
-  googleDomain?: string; // 特定于Google的配置
 }

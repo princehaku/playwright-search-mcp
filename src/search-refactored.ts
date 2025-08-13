@@ -30,66 +30,61 @@ export async function search(
   let userDataDirPath: string | undefined;
   const startTime = Date.now();
 
-  try {
-    if (typeof finalOptions.userDataDir === 'string') {
-      userDataDirPath = finalOptions.userDataDir;
-    } else if (finalOptions.userDataDir === true) {
-      userDataDirPath = browserManager.getStateDir();
-    }
-
-    // 常规模式
-    const engineName = finalOptions.engine || 'google';
-    const engineState = browserManager.loadEngineState(engineName);
-
-    context = await browserManager.createBrowser(
-      engineState,
-      {
-        headless: finalOptions.headless,
-        proxy: finalOptions.proxy,
-      });
-
-    page = context.pages()[0] || await context.newPage();
-    await page.goto("about:blank");
-
-    const searchEngine = SearchEngineFactory.createEngine(
-      (finalOptions.engine || 'google') as SearchEngineType,
-      {
-        page,
-        options: finalOptions,
-        browserManager,
-      }
-    );
-
-    const results = await searchEngine.search(query);
-    const searchTime = (Date.now() - startTime) / 1000;
-
-    // 在常规模式下，如果需要，保存状态
-    if (!userDataDirPath && !finalOptions.noSaveState) {
-      const engineState = await searchEngine.getEngineState();
-      browserManager.saveEngineState(finalOptions.engine || 'google', engineState);
-    }
-
-    return {
-      query: query,
-      results: results,
-      totalResults: results.length,
-      searchTime: searchTime,
-      engine: finalOptions.engine || 'google',
-    };
-  } finally {
-    // 在持久化模式下，我们不关闭浏览器或上下文，以便复用
-    if (!userDataDirPath) {
-      if (page && !page.isClosed()) {
-        await page.close();
-      }
-      if (context) {
-        await context.close();
-      }
-      if (browser && !existingBrowser) {
-        await browser.close();
-      }
-    }
+  if (typeof finalOptions.userDataDir === 'string') {
+    userDataDirPath = finalOptions.userDataDir;
+  } else if (finalOptions.userDataDir === true) {
+    userDataDirPath = browserManager.getStateDir();
   }
+
+  // 常规模式
+  const engineName = finalOptions.engine || 'google';
+  const engineState = browserManager.loadEngineState(engineName);
+
+  context = await browserManager.createBrowser(
+    engineState,
+    {
+      headless: finalOptions.headless,
+      proxy: finalOptions.proxy,
+    });
+
+  page = context.pages()[0] || await context.newPage();
+  await page.goto("about:blank");
+
+  const searchEngine = SearchEngineFactory.createEngine(
+    (finalOptions.engine || 'google') as SearchEngineType,
+    {
+      page,
+      options: finalOptions,
+      browserManager,
+    }
+  );
+
+  const results = await searchEngine.search(query);
+  const searchTime = (Date.now() - startTime) / 1000;
+
+  // 在常规模式下，如果需要，保存状态
+  logger.info(`保存浏览器状态、指纹和代理配置`);
+  
+  await browserManager.saveStateAndFingerprint(context, engineName, engineState, finalOptions.noSaveState);
+
+  // 在持久化模式下，我们不关闭浏览器或上下文，以便复用
+  if (page && !page.isClosed()) {
+    await page.close();
+  }
+  if (context) {
+    await context.close();
+  }
+  if (browser && !existingBrowser) {
+    await browser.close();
+  }
+
+  return {
+    query: query,
+    results: results,
+    totalResults: results.length,
+    searchTime: searchTime,
+    engine: finalOptions.engine || 'google',
+  };
 }
 
 /**

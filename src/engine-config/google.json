@@ -1,7 +1,7 @@
 {
   "id": "google",
   "name": "Google",
-  "baseUrl": "https://www.google.com",
+  "baseUrl": "https://www.google.com.hk",
   "searchPath": "/search?q=",
   "selectors": {
     "resultContainer": ".g, div[data-sokoban-container], .Gx5Zad, .tF2Cxc, .hlcw0c",

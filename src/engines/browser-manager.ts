@@ -22,7 +22,6 @@ export interface FingerprintConfig {
 export interface EngineState {
   fingerprint?: FingerprintConfig;
   proxy?: string;
-  googleDomain?: string; // 特定于Google的配置
 }
 
 // 更新：保存的状态文件接口，现在是一个映射
@@ -79,7 +78,7 @@ export abstract class BaseBrowserManager {
 
   // 更新：加载特定引擎的状态
   public loadEngineState(engineId: string): EngineState {
-    const state = this.loadState();
+    const state = this.loadSavedStatesFromFile();
     return state[engineId] || {};
   }
 
@@ -141,7 +140,9 @@ export abstract class BaseBrowserManager {
     engineState: EngineState,
     noSaveState: boolean = false
   ): Promise<void> {
-    if (noSaveState) return;
+    if (noSaveState) {
+      return;
+    }
 
     try {
       const stateDir = path.dirname(this.stateFile);
@@ -170,7 +171,14 @@ export abstract class BaseBrowserManager {
 
       logger.info(`已为引擎 '${engineId}' 保存浏览器状态、指纹和代理配置`);
     } catch (e) {
-      logger.warn({ error: e }, "保存浏览器状态/指纹/代理失败");
+      const err = e as Error;
+      logger.error({
+        err: {
+          type: err.constructor.name,
+          message: err.message,
+          stack: err.stack,
+        }
+      }, `保存浏览器状态/指纹/代理失败 for engine '${engineId}'`);
     }
   }
 
@@ -221,7 +229,7 @@ export abstract class BaseBrowserManager {
       reducedMotion: "no-preference",
       forcedColors: "none",
       viewport: device.viewport,
-      userAgent: device.userAgent,
+      userAgent: device.userAgent
     };
   }
 

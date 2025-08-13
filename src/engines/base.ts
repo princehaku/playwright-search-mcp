@@ -264,7 +264,7 @@ export class ConfigurableSearchEngine {
 
     // 随机滚动
     await page.evaluate(() => {
-      window.scrollTo(0, Math.random() * 100);
+      window.scrollTo(0, Math.random() * 500);
     });
 
     // 短暂等待
