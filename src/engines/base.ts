@@ -6,6 +6,8 @@ import {
   EngineState,
 } from "../types.js";
 import { BaseBrowserManager } from "./browser-manager.js";
+import { UniversalResultParser } from "./universal-parser.js";
+import { ConfigLoader } from "./config-loader.js";
 import logger from "../logger.js";
 import * as fs from "fs/promises";
 import * as path from "path";
@@ -39,13 +41,15 @@ export interface ResultParser {
   parseResults(page: Page, limit: number): Promise<SearchResult[]>;
 }
 
-// 基础搜索引擎抽象类
-export abstract class BaseSearchEngine {
+// 配置化的搜索引擎类
+export class ConfigurableSearchEngine {
   protected page: Page;
   protected options: CommandOptions;
   protected browserManager: BaseBrowserManager;
   protected config: SearchEngineConfig;
-  protected engineState: EngineState; // 新增：存储当前引擎的状态
+  protected engineState: EngineState;
+  protected parser: UniversalResultParser;
+  protected configLoader: ConfigLoader;
 
   constructor(
     config: SearchEngineConfig,
@@ -59,10 +63,42 @@ export abstract class BaseSearchEngine {
     this.options = options;
     this.browserManager = browserManager;
     this.engineState = engineState;
+    this.parser = new UniversalResultParser(config);
+    this.configLoader = ConfigLoader.getInstance();
   }
 
-  // 抽象方法：子类必须实现
-  abstract search(query: string): Promise<SearchResult[]>;
+  async search(query: string): Promise<SearchResult[]> {
+    try {
+      // 设置页面头信息
+      await this.setupPageHeaders(this.page);
+      
+      // 导航到搜索页面
+      await this.navigateToSearchPage(this.page, query);
+      
+      // 处理反机器人检测
+      await this.handleAntiBot(this.page);
+      
+      // 等待页面加载
+      await this.waitForPageLoad(this.page);
+      
+      await this.saveHtml(this.page, query);
+      
+      // 解析搜索结果
+      const results = await this.parser.parseResults(this.page, this.options.limit || 10);
+      
+      logger.info({
+        query,
+        resultsCount: results.length,
+        engine: this.config.name,
+      }, `${this.config.name}搜索完成`);
+
+      return results;
+
+    } catch (error) {
+      logger.error({ error, query }, `${this.config.name}搜索失败`);
+      throw error;
+    }
+  }
   
   async getEngineState(): Promise<EngineState> {
     return this.engineState;
@@ -177,8 +213,45 @@ export abstract class BaseSearchEngine {
 
   // 通用方法：处理反机器人检测
   protected async handleAntiBot(page: Page): Promise<void> {
-    if (!this.config.antiBot) return;
+    if (!this.configLoader.isAntiBotEnabled(this.config.id)) return;
 
+    // 获取引擎特定的反爬虫检测器
+    const detectors = this.configLoader.getAntiBotDetectors(this.config.id);
+    
+    if (detectors.length > 0) {
+      logger.info(`开始检测${this.config.name}反爬虫机制...`);
+      
+      for (const selector of detectors) {
+        try {
+          const element = page.locator(selector).first();
+          const count = await page.locator(selector).count();
+          
+          if (count > 0 && await element.isVisible({ timeout: 1000 })) {
+            logger.warn(`检测到${this.config.name}反爬虫机制！匹配选择器: "${selector}"`);
+            
+            // 执行通用反爬虫措施
+            await page.waitForTimeout(120000);
+            
+            // 使用配置中的错误消息
+            const errorMessage = this.configLoader.getAntiBotErrorMessage(this.config.id);
+            throw new Error(errorMessage);
+          }
+        } catch (e) {
+          if (e instanceof Error && (e.message.includes("需要") || e.message.includes("验证") || e.message.includes("登录"))) {
+            throw e;
+          }
+          logger.debug(`${this.config.name}选择器 "${selector}" 检测失败: ${e}`);
+        }
+      }
+      
+      logger.info(`未检测到${this.config.name}反爬虫机制，继续执行。`);
+    }
+
+    // 执行基本的反检测措施
+    await this.performAntiDetectionMeasures(page);
+  }
+
+  private async performAntiDetectionMeasures(page: Page): Promise<void> {
     // 随机鼠标移动
     await page.mouse.move(
       Math.random() * 800,
@@ -190,6 +263,7 @@ export abstract class BaseSearchEngine {
       window.scrollTo(0, Math.random() * 100);
     });
 
-    await page.waitForTimeout(120000)
+    // 短暂等待
+    await page.waitForTimeout(1000 + Math.random() * 2000);
   }
 }

@@ -1,11 +1,8 @@
 import { Page } from "playwright";
 import { CommandOptions } from "../types.js";
-import { BaseSearchEngine } from "./base.js";
-import { GoogleSearchEngine } from "./google-engine.js";
-import { BaiduSearchEngine } from "./baidu-engine.js";
-import { ZhihuSearchEngine } from "./zhihu-engine.js";
-import { XiaohongshuSearchEngine } from "./xiaohongshu-engine.js";
+import { ConfigurableSearchEngine } from "./base.js";
 import { BaseBrowserManager } from "./browser-manager.js";
+import { ConfigLoader } from "./config-loader.js";
 
 // 支持的搜索引擎类型
 export type SearchEngineType = "google" | "baidu" | "zhihu" | "xhs" | "xiaohongshu";
@@ -17,48 +14,38 @@ export interface EngineConstructorParams {
   browserManager: BaseBrowserManager;
 }
 
-// 搜索引擎工厂类
+// 配置化的搜索引擎工厂类
 export class SearchEngineFactory {
+  private static configLoader = ConfigLoader.getInstance();
 
   /**
    * 创建搜索引擎实例
    * @param engineType 搜索引擎类型
-   * @param options 命令选项
+   * @param params 构造参数
    * @returns 搜索引擎实例
    */
   public static createEngine(
     engineType: SearchEngineType,
     params: EngineConstructorParams
-  ): BaseSearchEngine {
-    switch (engineType) {
-      case "google":
-        return new GoogleSearchEngine(
-          params.page,
-          params.options,
-          params.browserManager
-        );
-      case "baidu":
-        return new BaiduSearchEngine(
-          params.page,
-          params.options,
-          params.browserManager
-        );
-      case "zhihu":
-        return new ZhihuSearchEngine(
-          params.page,
-          params.options,
-          params.browserManager
-        );
-      case "xhs":
-      case "xiaohongshu":
-        return new XiaohongshuSearchEngine(
-          params.page,
-          params.options,
-          params.browserManager
-        );
-      default:
-        throw new Error(`不支持的搜索引擎: ${engineType}`);
+  ): ConfigurableSearchEngine {
+    // 处理别名
+    const normalizedType = engineType === "xiaohongshu" ? "xhs" : engineType;
+    
+    const config = this.configLoader.getEngineConfig(normalizedType);
+    if (!config) {
+      throw new Error(`不支持的搜索引擎: ${engineType}`);
     }
+
+    // 加载引擎状态
+    const engineState = params.browserManager.loadEngineState(config.id);
+
+    return new ConfigurableSearchEngine(
+      config,
+      params.page,
+      params.options,
+      params.browserManager,
+      engineState
+    );
   }
 
   /**
@@ -66,7 +53,9 @@ export class SearchEngineFactory {
    * @returns 支持的搜索引擎类型数组
    */
   static getSupportedEngines(): SearchEngineType[] {
-    return ["google", "baidu", "zhihu", "xhs", "xiaohongshu"];
+    const engines = this.configLoader.getSupportedEngineIds();
+    // 添加xiaohongshu别名
+    return [...engines, "xiaohongshu"] as SearchEngineType[];
   }
 
   /**
@@ -75,8 +64,8 @@ export class SearchEngineFactory {
    * @returns 是否支持
    */
   public static isEngineSupported(engineType: string): engineType is SearchEngineType {
-    const supportedEngines: SearchEngineType[] = ["google", "baidu", "zhihu", "xhs", "xiaohongshu"];
-    return supportedEngines.includes(engineType as SearchEngineType);
+    const normalizedType = engineType === "xiaohongshu" ? "xhs" : engineType;
+    return this.configLoader.isEngineSupported(normalizedType);
   }
 
   /**
@@ -85,14 +74,8 @@ export class SearchEngineFactory {
    * @returns 显示名称
    */
   static getEngineDisplayName(engineType: SearchEngineType): string {
-    const displayNames: Record<SearchEngineType, string> = {
-      google: "Google",
-      baidu: "百度",
-      zhihu: "知乎",
-      xhs: "小红书",
-      xiaohongshu: "小红书",
-    };
-
-    return displayNames[engineType] || engineType;
+    const normalizedType = engineType === "xiaohongshu" ? "xhs" : engineType;
+    const config = this.configLoader.getEngineConfig(normalizedType);
+    return config?.name || engineType;
   }
 }
