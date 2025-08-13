@@ -48,7 +48,7 @@ export async function search(
         proxy: finalOptions.proxy,
       });
 
-    page = await context.newPage();
+    page = context.pages()[0] || await context.newPage();
     await page.goto("about:blank");
 
     const searchEngine = SearchEngineFactory.createEngine(

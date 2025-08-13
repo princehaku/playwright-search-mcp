@@ -59,10 +59,6 @@ export class ChromiumBrowserManager extends BaseBrowserManager {
       contextOptions
     );
 
-    // 导航到 about:blank 以防止stealth插件打开意外页面
-    const page = await context.newPage();
-    await page.goto("about:blank");
-
     logger.info("持久化上下文启动成功");
     return context;
   }
