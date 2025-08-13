@@ -24,8 +24,8 @@ export class ChromiumBrowserManager extends BaseBrowserManager {
         "--disable-dev-shm-usage",
         "--disable-accelerated-2d-canvas",
         "--no-first-run",
-        "--no-zygote",
-        "--disable-gpu",
+        // "--no-zygote", // 在某些版本的Linux上可能需要，但通常可以移除
+        // "--disable-gpu", // Stealth插件可能会处理GPU伪装
       ],
     });
 
@@ -39,16 +39,16 @@ export class ChromiumBrowserManager extends BaseBrowserManager {
     engineState: EngineState,
     proxy?: string
   ): Promise<BrowserContext> {
-    const storageStateFile =
-      this.options.stateFile || "./browser-state.json";
+    const storageStateFile = this.stateFile;
     const storageState = fs.existsSync(storageStateFile)
       ? storageStateFile
       : undefined;
 
     // 使用已保存的指纹，或创建新的
-    const fingerprint =
-      engineState.fingerprint ||
-      this.getHostMachineConfig(this.options.locale);
+    if (!engineState.fingerprint) {
+      engineState.fingerprint = this.getHostMachineConfig(this.options.locale);
+    }
+    const fingerprint = engineState.fingerprint;
 
     const contextOptions: any = {
       locale: fingerprint.locale,
@@ -73,21 +73,10 @@ export class ChromiumBrowserManager extends BaseBrowserManager {
     logger.info({ fingerprint }, "正在创建浏览器上下文...");
     const context = await browser.newContext(contextOptions);
 
-    // 拦截iframe请求，这是Google检测机器人的常用手段
-    await context.route("**/*", (route, request) => {
-      if (request.frame().parentFrame()) {
-        // 如果请求来自iframe，则中止它
-        route.abort();
-      } else {
-        // 否则，正常处理请求
-        route.continue();
-      }
-    });
-
     // 导航到 about:blank 以防止stealth插件打开意外页面
     const page = await context.newPage();
     await page.goto("about:blank");
-
+    
     // 设置页面超时
     context.setDefaultTimeout(this.options.timeout || 60000);
 

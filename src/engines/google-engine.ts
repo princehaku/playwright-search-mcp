@@ -37,7 +37,7 @@ class GoogleResultParser {
   private googleDomain: string;
 
   constructor(engineState: EngineState) {
-    this.googleDomain = engineState.googleDomain || "https://www.google.com";
+    this.googleDomain = engineState.googleDomain || "https://www.google.com.hk";
   }
 
   async parseResults(page: Page, limit: number): Promise<SearchResult[]> {
@@ -172,6 +172,7 @@ export class GoogleSearchEngine extends BaseSearchEngine {
 
       // 创建新页面
       const page = await context.newPage();
+      await page.goto("about:blank");
       
       // 设置页面头信息
       await this.setupPageHeaders(page);
@@ -197,6 +198,7 @@ export class GoogleSearchEngine extends BaseSearchEngine {
         proxy,
         googleDomain: this.resultParser.getGoogleDomain(),
       };
+      
       await this.browserManager.saveStateAndFingerprint(
         context,
         this.config.id,

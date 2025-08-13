@@ -36,13 +36,33 @@ export abstract class BaseBrowserManager {
 
   constructor(options: CommandOptions = {}) {
     this.options = options;
-    const defaultStateDir = path.join(os.homedir(), ".playwright-search");
-    this.stateFile =
-      options.stateFile || path.join(defaultStateDir, "browser-state.json");
+
+    if (options.stateFile) {
+      this.stateFile = options.stateFile;
+    } else {
+      let stateDir: string;
+      const localStateDir = path.resolve(".playwright-search");
+      const homeStateDir = path.join(os.homedir(), ".playwright-search");
+
+      if (fs.existsSync(localStateDir)) {
+        stateDir = localStateDir;
+      } else {
+        stateDir = homeStateDir;
+      }
+      // Ensure the state directory exists
+      if (!fs.existsSync(stateDir)) {
+        fs.mkdirSync(stateDir, { recursive: true });
+      }
+      this.stateFile = path.join(stateDir, "browser-state.json");
+    }
+
     this.fingerprintFile = this.stateFile.replace(
       ".json",
       "-fingerprint.json"
     );
+
+    
+    logger.info(`加载配置文件: ${this.fingerprintFile}`);
   }
 
   // 抽象方法：子类必须实现
@@ -123,6 +143,8 @@ export abstract class BaseBrowserManager {
     // 筛选出所有桌面设备
     const desktopDevices = Object.keys(devices).filter(
       (name) => !devices[name].isMobile
+    ).filter(
+      (name) => devices[name].userAgent.indexOf("Chrome") !== -1
     );
 
     // 从桌面设备中随机选择一个
@@ -130,8 +152,8 @@ export abstract class BaseBrowserManager {
       desktopDevices[Math.floor(Math.random() * desktopDevices.length)];
     const device = devices[randomDeviceName];
 
-    // 强制设置1080p分辨率
-    device.viewport = { width: 1920, height: 1080 };
+    // 强制设置720p分辨率
+    device.viewport = { width: 1200, height: 768 };
 
     return [randomDeviceName, device];
   }
@@ -139,11 +161,7 @@ export abstract class BaseBrowserManager {
   // 通用方法：获取随机时区
   protected getRandomTimezone(): string {
     const timezoneList = [
-      "America/New_York",
-      "Europe/London",
-      "Asia/Shanghai",
-      "Europe/Berlin",
-      "Asia/Tokyo",
+      "Asia/Shanghai"
     ];
 
     return timezoneList[Math.floor(Math.random() * timezoneList.length)];

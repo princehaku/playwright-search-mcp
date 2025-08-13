@@ -37,7 +37,7 @@ program
   .option("-l, --limit <number>", "结果数量限制", parseInt, 10)
   .option("-t, --timeout <number>", "超时时间(毫秒)", parseInt, 30000)
   .option("--no-headless", "以有头模式启动浏览器（默认使用无头模式，遇到人机验证会自动切换为有头模式）")
-  .option("--state-file <path>", "浏览器状态文件路径", "./browser-state.json")
+  .option("--state-file <path>", "浏览器状态文件路径")
   .option("--no-save-state", "不保存浏览器状态")
   .option("--get-html", "获取搜索结果页面的原始HTML而不是解析结果")
   .option("--save-html", "将HTML保存到文件")
