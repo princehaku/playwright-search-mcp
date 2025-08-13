@@ -1,0 +1,30 @@
+{
+  "id": "google",
+  "name": "Google",
+  "baseUrl": "https://www.google.com",
+  "searchPath": "/search?q=",
+  "selectors": {
+    "resultContainer": ".g, div[data-sokoban-container], .Gx5Zad, .tF2Cxc, .hlcw0c",
+    "title": "h3, .LC20lb, .DKV0Md",
+    "link": "a, .yuRUbf a",
+    "snippet": ".VwiC3b, div[data-sncf='1'], .s, .IsZvec"
+  },
+  "headers": {
+    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8"
+  },
+  "antiBot": {
+    "enabled": true,
+    "detectors": [
+      "iframe[src*=\"recaptcha\"]"
+    ],
+    "errorMessage": "Google检测到reCAPTCHA，需要人工干预来解决验证码。"
+  },
+  "customDelay": {
+    "min": 1000,
+    "max": 3000
+  },
+  "fallbackSelector": "div:has(a[href*=\"http\"]):not([role=\"navigation\"])",
+  "linkValidation": [
+    "http"
+  ]
+}

@@ -10,7 +10,8 @@
     "playwright-search-mcp": "./bin/playwright-search-mcp.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && npm run copy-configs",
+    "copy-configs": "cp -r src/engine-config dist/src/engine-config",
     "postinstall": "playwright install chromium",
     "dev": "ts-node src/index.ts",
     "start": "node dist/index.js",
@@ -41,7 +42,7 @@
     "search-engine"
   ],
   "author": "princehaku",
-  "license": "ISC",
+  "license": "MIT",
   "devDependencies": {
     "@types/node": "^22.13.9",
     "jsdom": "^26.0.0",
