@@ -1,0 +1,34 @@
+{
+  "baidu": {
+    "fingerprint": {
+      "deviceName": "Desktop Edge HiDPI",
+      "locale": "en_US.UTF-8",
+      "timezoneId": "Asia/Shanghai",
+      "colorScheme": "light",
+      "reducedMotion": "no-preference",
+      "forcedColors": "none",
+      "viewport": {
+        "width": 1200,
+        "height": 768
+      },
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.7258.5 Safari/537.36 Edg/139.0.7258.5"
+    }
+  },
+  "google": {
+    "fingerprint": {
+      "deviceName": "Desktop Chrome",
+      "locale": "en_US.UTF-8",
+      "timezoneId": "Asia/Shanghai",
+      "colorScheme": "light",
+      "reducedMotion": "no-preference",
+      "forcedColors": "none",
+      "viewport": {
+        "width": 1200,
+        "height": 768
+      },
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.7258.5 Safari/537.36"
+    },
+    "googleDomain": "https://www.google.com.hk",
+    "proxy": "socks5://127.0.0.1:7072"
+  }
+}

@@ -30,9 +30,8 @@ pnpm-debug.log*
 .DS_Store
 
 # 浏览器状态文件
-browser-state.json
-browser-state-fingerprint.json
 src/mcp-server.ts
 .iter_plan.md
 .iter_process.md
 search_results/
+.playwright-search/

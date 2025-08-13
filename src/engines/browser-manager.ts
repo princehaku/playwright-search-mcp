@@ -31,52 +31,88 @@ export type SavedState = Record<string, EngineState>;
 // 浏览器管理器抽象类
 export abstract class BaseBrowserManager {
   protected options: CommandOptions;
+  protected stateDir: string;
   protected stateFile: string;
   protected fingerprintFile: string;
 
   constructor(options: CommandOptions = {}) {
     this.options = options;
 
-    if (options.stateFile) {
-      this.stateFile = options.stateFile;
-    } else {
-      let stateDir: string;
-      const localStateDir = path.resolve(".playwright-search");
-      const homeStateDir = path.join(os.homedir(), ".playwright-search");
+    let stateDir: string;
+    const localStateDir = path.resolve(".playwright-search");
+    const homeStateDir = path.join(os.homedir(), ".playwright-search");
 
-      if (fs.existsSync(localStateDir)) {
-        stateDir = localStateDir;
-      } else {
-        stateDir = homeStateDir;
-      }
-      // Ensure the state directory exists
-      if (!fs.existsSync(stateDir)) {
-        fs.mkdirSync(stateDir, { recursive: true });
-      }
-      this.stateFile = path.join(stateDir, "browser-state.json");
+    if (fs.existsSync(localStateDir)) {
+      stateDir = localStateDir;
+    } else {
+      stateDir = homeStateDir;
     }
+    if (options.userDataDir) {
+      stateDir = options.userDataDir
+    }
+
+    this.stateDir = stateDir;
+    // Ensure the state directory exists
+    if (!fs.existsSync(this.stateDir)) {
+      fs.mkdirSync(this.stateDir, { recursive: true });
+    }
+    this.stateFile = path.join(this.stateDir, "browser-state.json");
 
     this.fingerprintFile = this.stateFile.replace(
       ".json",
       "-fingerprint.json"
     );
 
-    
-    logger.info(`加载配置文件: ${this.fingerprintFile}`);
+  }
+
+  public getStateDir(): string {
+    return this.stateDir;
   }
 
   // 抽象方法：子类必须实现
-  abstract createBrowser(): Promise<Browser>;
-  abstract createContext(
-    browser: Browser,
+  abstract createBrowser(
     engineState: EngineState,
-    proxy?: string
-  ): Promise<BrowserContext>;
+    options: {
+      headless?: boolean;
+      proxy?: string;
+    }): Promise<BrowserContext>;
 
   // 更新：加载特定引擎的状态
   public loadEngineState(engineId: string): EngineState {
-    const allStates = this.loadSavedStatesFromFile();
-    return allStates[engineId] || {};
+    const state = this.loadState();
+    return state[engineId] || {};
+  }
+
+  // 更新：保存特定引擎的状态
+  public saveEngineState(engineId: string, engineState: EngineState) {
+    const state = this.loadState();
+    state[engineId] = engineState;
+    this.saveState(state);
+  }
+
+  // 加载状态
+  protected loadState(): SavedState {
+    if (fs.existsSync(this.stateFile)) {
+      try {
+        const stateData = fs.readFileSync(this.stateFile, "utf8");
+        return JSON.parse(stateData);
+      } catch (e) {
+        logger.warn(
+          { error: e },
+          "无法加载指紋或代理配置文件，将创建新的"
+        );
+      }
+    }
+    return {};
+  }
+
+  // 保存状态
+  protected saveState(state: SavedState) {
+    try {
+      fs.writeFileSync(this.stateFile, JSON.stringify(state, null, 2));
+    } catch (e) {
+      logger.error({ error: e }, "无法保存状态文件");
+    }
   }
 
   // 私有方法：从文件加载所有状态
@@ -118,7 +154,7 @@ export abstract class BaseBrowserManager {
 
       // 加载当前所有引擎的状态，以避免覆盖
       const currentState = this.loadSavedStatesFromFile();
-      
+
       // 更新或添加当前引擎的状态
       currentState[engineId] = {
         ...currentState[engineId], // 保留该引擎可能存在的旧属性
@@ -207,9 +243,8 @@ export abstract class BaseBrowserManager {
   protected parseProxyConfig(proxyUrl: string): any {
     try {
       const u = new URL(proxyUrl);
-      const server = `${u.protocol}//${u.hostname}${
-        u.port ? ":" + u.port : ""
-      }`;
+      const server = `${u.protocol}//${u.hostname}${u.port ? ":" + u.port : ""
+        }`;
       const cfg: { server: string; username?: string; password?: string } = {
         server,
       };

@@ -1,7 +1,16 @@
-import { Browser } from "playwright";
+import { Browser, BrowserContext, Page } from "playwright";
 import { SearchResponse, CommandOptions } from "./types.js";
 import { SearchEngineFactory, SearchEngineType } from "./engines/engine-factory.js";
 import logger from "./logger.js";
+import { ChromiumBrowserManager } from "./engines/chromium-manager.js";
+
+const defaultOptions: CommandOptions = {
+  limit: 10,
+  timeout: 30000,
+  headless: true,
+  engine: "google",
+  noSaveState: false,
+};
 
 /**
  * 重构后的搜索函数
@@ -12,30 +21,74 @@ export async function search(
   options: CommandOptions = {},
   existingBrowser?: Browser
 ): Promise<SearchResponse> {
-  const engineType = (options.engine || "google") as SearchEngineType;
-  
-  // 验证搜索引擎类型
-  if (!SearchEngineFactory.isEngineSupported(engineType)) {
-    throw new Error(`不支持的搜索引擎: ${engineType}`);
-  }
+  const finalOptions = { ...defaultOptions, ...options };
+  const browserManager = new ChromiumBrowserManager(finalOptions);
 
-  logger.info({ engine: engineType, query }, "开始搜索");
+  let browser: Browser | undefined = existingBrowser;
+  let context: BrowserContext | null = null;
+  let page: Page | null = null;
+  let userDataDirPath: string | undefined;
+  const startTime = Date.now();
 
   try {
-    // 创建搜索引擎实例
-    const searchEngine = SearchEngineFactory.createEngine(engineType, options);
-    
-    // 执行搜索
-    const response = await searchEngine.performSearch(
-      query,
-      options.headless !== false,
-      existingBrowser
+    if (typeof finalOptions.userDataDir === 'string') {
+      userDataDirPath = finalOptions.userDataDir;
+    } else if (finalOptions.userDataDir === true) {
+      userDataDirPath = browserManager.getStateDir();
+    }
+
+    // 常规模式
+    const engineName = finalOptions.engine || 'google';
+    const engineState = browserManager.loadEngineState(engineName);
+
+    context = await browserManager.createBrowser(
+      engineState,
+      {
+        headless: finalOptions.headless,
+        proxy: finalOptions.proxy,
+      });
+
+    page = await context.newPage();
+    await page.goto("about:blank");
+
+    const searchEngine = SearchEngineFactory.createEngine(
+      (finalOptions.engine || 'google') as SearchEngineType,
+      {
+        page,
+        options: finalOptions,
+        browserManager,
+      }
     );
 
-    return response;
-  } catch (error) {
-    logger.error({ error, engine: engineType, query }, "搜索失败");
-    throw error;
+    const results = await searchEngine.search(query);
+    const searchTime = (Date.now() - startTime) / 1000;
+
+    // 在常规模式下，如果需要，保存状态
+    if (!userDataDirPath && !finalOptions.noSaveState) {
+      const engineState = await searchEngine.getEngineState();
+      browserManager.saveEngineState(finalOptions.engine || 'google', engineState);
+    }
+
+    return {
+      query: query,
+      results: results,
+      totalResults: results.length,
+      searchTime: searchTime,
+      engine: finalOptions.engine || 'google',
+    };
+  } finally {
+    // 在持久化模式下，我们不关闭浏览器或上下文，以便复用
+    if (!userDataDirPath) {
+      if (page && !page.isClosed()) {
+        await page.close();
+      }
+      if (context) {
+        await context.close();
+      }
+      if (browser && !existingBrowser) {
+        await browser.close();
+      }
+    }
   }
 }
 

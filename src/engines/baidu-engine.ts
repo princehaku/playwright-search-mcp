@@ -1,10 +1,7 @@
-import { Browser, Page } from "playwright";
-import { SearchResponse, SearchResult, CommandOptions } from "../types.js";
+import { Page } from "playwright";
+import { SearchResult, CommandOptions } from "../types.js";
 import { BaseSearchEngine, SearchEngineConfig } from "./base.js";
-import { ChromiumBrowserManager } from "./chromium-manager.js";
-import { FingerprintConfig } from "./browser-manager.js";
 import logger from "../logger.js";
-import { EngineState } from "./browser-manager.js";
 
 // 百度搜索引擎配置
 const BAIDU_CONFIG: SearchEngineConfig = {
@@ -95,106 +92,47 @@ class BaiduResultParser {
 
 // 百度搜索引擎实现
 export class BaiduSearchEngine extends BaseSearchEngine {
-  private browserManager: ChromiumBrowserManager;
   private resultParser: BaiduResultParser;
 
-  constructor(options: CommandOptions = {}) {
-    const browserManager = new ChromiumBrowserManager(options);
+  constructor(
+    page: Page,
+    options: CommandOptions = {},
+    browserManager: any
+  ) {
     const engineState = browserManager.loadEngineState(BAIDU_CONFIG.id);
-    super(BAIDU_CONFIG, options, engineState);
-    this.browserManager = browserManager;
+    super(BAIDU_CONFIG, page, options, browserManager, engineState);
     this.resultParser = new BaiduResultParser();
   }
 
-  async performSearch(
-    query: string,
-    headless: boolean,
-    existingBrowser?: Browser
-  ): Promise<SearchResponse> {
-    const startTime = Date.now();
-    let browser: Browser | undefined = existingBrowser;
-    let browserWasProvided = !!existingBrowser;
-
+  async search(query: string): Promise<SearchResult[]> {
     try {
-      if (!browser) {
-        browser = await this.browserManager.createBrowser();
-        logger.info("创建了新的浏览器实例");
-      } else {
-        logger.info("使用已存在的浏览器实例");
-      }
-
-      // 获取代理和指纹
-      const proxy = this.getProxy();
-      const fingerprint =
-        this.engineState.fingerprint ||
-        this.browserManager.getHostMachineConfig(this.options.locale);
-
-      // 创建浏览器上下文
-      const context = await this.browserManager.createContext(
-        browser,
-        { ...this.engineState, fingerprint },
-        proxy
-      );
-      
-      // 创建新页面
-      const page = await context.newPage();
-      
       // 设置页面头信息
-      await this.setupPageHeaders(page);
+      await this.setupPageHeaders(this.page);
       
       // 导航到搜索页面
-      await this.navigateToSearchPage(page, query);
+      await this.navigateToSearchPage(this.page, query);
       
       // 等待页面加载
-      await this.waitForPageLoad(page);
+      await this.waitForPageLoad(this.page);
       
-      await this.saveHtml(page, query);
+      await this.saveHtml(this.page, query);
       
       // 解析搜索结果
-      const results = await this.resultParser.parseResults(page, this.options.limit || 10);
+      const results = await this.resultParser.parseResults(this.page, this.options.limit || 10);
       
-      // 更新并保存状态
-      const newEngineState: EngineState = {
-        ...this.engineState,
-        fingerprint,
-        proxy,
-      };
-      await this.browserManager.saveStateAndFingerprint(
-        context,
-        this.config.id,
-        newEngineState,
-        this.options.noSaveState
-      );
-
-      const endTime = Date.now();
-      const duration = endTime - startTime;
-
       logger.info({
         query,
         resultsCount: results.length,
-        duration,
         engine: "百度",
       }, "百度搜索完成");
 
-      return {
-        query,
-        results,
-        totalResults: results.length,
-        searchTime: duration,
-        engine: "百度",
-      };
+      return results;
 
     } catch (error) {
       logger.error({ error, query }, "百度搜索失败");
       throw error;
-    } finally {
-      if (!browserWasProvided && browser) {
-        await browser.close();
-      }
     }
   }
 
-  private async getFingerprint(): Promise<FingerprintConfig> {
-    return this.browserManager.getHostMachineConfig(this.options.locale);
-  }
+
 }

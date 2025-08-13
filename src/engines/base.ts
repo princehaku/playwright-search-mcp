@@ -5,6 +5,7 @@ import {
   CommandOptions,
   EngineState,
 } from "../types.js";
+import { BaseBrowserManager } from "./browser-manager.js";
 import logger from "../logger.js";
 import * as fs from "fs/promises";
 import * as path from "path";
@@ -40,18 +41,31 @@ export interface ResultParser {
 
 // 基础搜索引擎抽象类
 export abstract class BaseSearchEngine {
-  protected config: SearchEngineConfig;
+  protected page: Page;
   protected options: CommandOptions;
+  protected browserManager: BaseBrowserManager;
+  protected config: SearchEngineConfig;
   protected engineState: EngineState; // 新增：存储当前引擎的状态
 
   constructor(
     config: SearchEngineConfig,
-    options: CommandOptions = {},
+    page: Page,
+    options: CommandOptions,
+    browserManager: BaseBrowserManager,
     engineState: EngineState = {}
   ) {
     this.config = config;
+    this.page = page;
     this.options = options;
+    this.browserManager = browserManager;
     this.engineState = engineState;
+  }
+
+  // 抽象方法：子类必须实现
+  abstract search(query: string): Promise<SearchResult[]>;
+  
+  async getEngineState(): Promise<EngineState> {
+    return this.engineState;
   }
 
   // 更新：根据引擎配置获取代理
@@ -68,13 +82,6 @@ export abstract class BaseSearchEngine {
     // 最后是全局代理
     return this.options.proxy;
   }
-
-  // 抽象方法：子类必须实现
-  abstract performSearch(
-    query: string,
-    headless: boolean,
-    existingBrowser?: Browser
-  ): Promise<SearchResponse>;
 
   // 通用方法：保存HTML内容
   protected async saveHtml(page: Page, query: string): Promise<void> {
