@@ -113,15 +113,6 @@ export abstract class BaseSearchEngine {
     logger.info({ url: searchUrl }, `正在导航到${this.config.name}搜索页面`);
     
     await page.goto(searchUrl, { waitUntil: "networkidle" });
-    
-    // 应用自定义延迟
-    if (this.config.customDelay) {
-      const delay = this.getRandomDelay(
-        this.config.customDelay.min,
-        this.config.customDelay.max
-      );
-      await page.waitForTimeout(delay);
-    }
   }
 
   // 通用方法：构建搜索URL

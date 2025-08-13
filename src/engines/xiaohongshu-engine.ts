@@ -13,7 +13,7 @@ const XHS_CONFIG: SearchEngineConfig = {
     resultContainer: "section.note-item",
     title: "a.title",
     link: 'a[href^="/explore/"]',
-    snippet: ".author .name",
+    snippet: "img",
   },
   headers: {
     "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
@@ -60,9 +60,12 @@ class XiaohongshuResultParser {
 
           const link = href.startsWith("/") ? `${XHS_CONFIG.baseUrl}${href}` : href;
           
-          // 提取摘要
-          const snippetElement = await element.$(XHS_CONFIG.selectors.snippet);
-          const snippet = snippetElement ? await snippetElement.textContent() : "";
+          // 提取图片URL作为snippet
+          let snippet = "";
+          const imgElement = await element.$(XHS_CONFIG.selectors.snippet);
+          if (imgElement) {
+            snippet = await imgElement.getAttribute("src") || await imgElement.getAttribute("data-src") || "";
+          }
           
           results.push({
             title: this.cleanText(title),
@@ -142,15 +145,6 @@ export class XiaohongshuSearchEngine extends BaseSearchEngine {
     }
   }
 
-  protected async navigateToSearchPage(
-    page: Page,
-    query: string
-  ): Promise<void> {
-    const searchUrl = this.buildSearchUrl(query);
-    logger.info({ url: searchUrl }, `正在导航到${this.config.name}搜索页面`);
-    await page.goto(searchUrl, { waitUntil: "domcontentloaded" });
-  }
-
   protected async handleAntiBot(page: Page): Promise<void> {
     try {
       const loginPopupSelector1 = 'div:text("登录后查看搜索结果")';
@@ -169,11 +163,12 @@ export class XiaohongshuSearchEngine extends BaseSearchEngine {
         }),
       ]);
 
+      await super.handleAntiBot(page);
+
       logger.warn("检测到小红书登录弹窗，搜索可能无法继续。");
     } catch (error) {
       // If neither selector is found within the timeout, proceed.
-      logger.info("未检测到小红书登录弹窗，执行通用反爬虫措施。");
-      await super.handleAntiBot(page);
+      logger.info("未检测到小红书登录弹窗");
     }
   }
 
