@@ -26,7 +26,11 @@ export interface SearchEngineConfig {
   };
   headers?: Record<string, string>;
   userAgent?: string;
-  antiBot?: boolean;
+  antiBot?: {
+    enabled: boolean;
+    detectors: string[];
+    errorMessage: string;
+  };
   customDelay?: {
     min: number;
     max: number;

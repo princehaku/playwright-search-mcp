@@ -7,22 +7,13 @@ import logger from '../logger.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-/**
- * 扩展的搜索引擎配置接口
- */
-export interface ExtendedSearchEngineConfig extends SearchEngineConfig {
-  antiBot: {
-    enabled: boolean;
-    detectors: string[];
-    errorMessage: string;
-  };
-}
+// 使用基类的SearchEngineConfig接口
 
 /**
  * 配置文件结构
  */
 interface ConfigFile {
-  engines: Record<string, ExtendedSearchEngineConfig>;
+  engines: Record<string, SearchEngineConfig>;
   fallbackSelectors: Record<string, string>;
   linkValidation: Record<string, string[]>;
 }
@@ -55,7 +46,12 @@ export class ConfigLoader {
     }
 
     try {
-      const configPath = path.join(__dirname, 'configs.json');
+      // 在开发模式下使用源码目录，在生产模式下使用dist目录
+      const isDev = __dirname.includes('src');
+      const configPath = isDev 
+        ? path.join(__dirname, 'configs.json')
+        : path.join(__dirname, '../../src/engines/configs.json');
+      
       const configContent = fs.readFileSync(configPath, 'utf-8');
       this.config = JSON.parse(configContent);
       logger.info('搜索引擎配置加载成功');
@@ -69,7 +65,7 @@ export class ConfigLoader {
   /**
    * 获取引擎配置
    */
-  public getEngineConfig(engineId: string): ExtendedSearchEngineConfig | null {
+  public getEngineConfig(engineId: string): SearchEngineConfig | null {
     const config = this.loadConfig();
     return config.engines[engineId] || null;
   }
@@ -111,7 +107,7 @@ export class ConfigLoader {
    */
   public getAntiBotDetectors(engineId: string): string[] {
     const engineConfig = this.getEngineConfig(engineId);
-    return engineConfig?.antiBot.detectors || [];
+    return engineConfig?.antiBot?.detectors || [];
   }
 
   /**
@@ -119,7 +115,7 @@ export class ConfigLoader {
    */
   public getAntiBotErrorMessage(engineId: string): string {
     const engineConfig = this.getEngineConfig(engineId);
-    return engineConfig?.antiBot.errorMessage || `${engineId}需要人工验证，请手动完成后重试。`;
+    return engineConfig?.antiBot?.errorMessage || `${engineId}需要人工验证，请手动完成后重试。`;
   }
 
   /**
@@ -127,7 +123,7 @@ export class ConfigLoader {
    */
   public isAntiBotEnabled(engineId: string): boolean {
     const engineConfig = this.getEngineConfig(engineId);
-    return engineConfig?.antiBot.enabled || false;
+    return engineConfig?.antiBot?.enabled || false;
   }
 
   /**
