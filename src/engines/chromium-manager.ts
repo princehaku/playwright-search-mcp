@@ -1,12 +1,11 @@
 import { Browser, BrowserContext } from "playwright";
 import { chromium as chromiumExtra } from "playwright-extra";
 import StealthPlugin from "puppeteer-extra-plugin-stealth";
-import { BaseBrowserManager, FingerprintConfig } from "./browser-manager.js";
+import { BaseBrowserManager, FingerprintConfig, EngineState } from "./browser-manager.js";
 import { CommandOptions } from "../types.js";
 import logger from "../logger.js";
 import { devices } from "playwright";
 import fs from "fs";
-import { EngineState } from "../types.js";
 
 export class ChromiumBrowserManager extends BaseBrowserManager {
 
@@ -30,20 +29,12 @@ export class ChromiumBrowserManager extends BaseBrowserManager {
 
     const contextOptions: any = {
       locale: fingerprint.locale,
-      timezoneId: fingerprint.timezoneId,
-      colorScheme: fingerprint.colorScheme,
-      reducedMotion: fingerprint.reducedMotion,
-      forcedColors: fingerprint.forcedColors,
-      userAgent: fingerprint.userAgent,
       viewport: fingerprint.viewport,
       headless: options.headless,
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
-        "--disable-dev-shm-usage",
-        "--disable-accelerated-2d-canvas",
-        "--no-first-run",
-        "--disable-blink-features=AutomationControlled"
+        "--no-first-run"
       ],
     };
 
