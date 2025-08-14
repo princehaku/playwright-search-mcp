@@ -166,7 +166,7 @@ export class ConfigLoader {
     this.loadConfigs();
     
     // 先从引擎特定配置中获取
-    const engineConfigFile = this.loadEngineConfigFile(engineId);
+    const engineConfigFile = this.getEngineConfig(engineId);
     if (engineConfigFile?.fallbackSelector) {
       return engineConfigFile.fallbackSelector;
     }
@@ -180,38 +180,14 @@ export class ConfigLoader {
    */
   public getLinkValidationRules(engineId: string): string[] {
     this.loadConfigs();
-    
     // 先从引擎特定配置中获取
-    const engineConfigFile = this.loadEngineConfigFile(engineId);
-    if (engineConfigFile?.linkValidation) {
-      return engineConfigFile.linkValidation;
+    const engineConfig = this.getEngineConfig(engineId);
+    if (engineConfig?.linkValidation) {
+      return engineConfig.linkValidation;
     }
     
     // 如果没有，使用默认值
     return this.commonConfig?.defaultLinkValidation || ['http'];
-  }
-
-  /**
-   * 加载引擎原始配置文件（包含扩展属性）
-   */
-  private loadEngineConfigFile(engineId: string): ExtendedEngineConfig | null {
-    try {
-      const isDev = __dirname.includes('src');
-      const configDir = isDev 
-        ? path.join(__dirname, 'engine-instances')
-        : path.join(__dirname, '../../src/engines/engine-instances');
-      
-      const enginePath = path.join(configDir, `${engineId}.json`);
-      if (!fs.existsSync(enginePath)) {
-        return null;
-      }
-      
-      const engineContent = fs.readFileSync(enginePath, 'utf-8');
-      return JSON.parse(engineContent);
-    } catch (error) {
-      logger.warn({ error, engineId }, '加载引擎原始配置文件失败');
-      return null;
-    }
   }
 
   /**

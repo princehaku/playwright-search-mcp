@@ -55,7 +55,7 @@ export class SearchEngineFactory {
   static getSupportedEngines(): SearchEngineType[] {
     const engines = this.configLoader.getSupportedEngineIds();
     // 添加xiaohongshu别名
-    return [...engines, "xiaohongshu"] as SearchEngineType[];
+    return [...engines, "xhs"] as SearchEngineType[];
   }
 
   /**

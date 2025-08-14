@@ -10,16 +10,16 @@
     "snippet": "img"
   },
   "headers": {
-    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36"
   },
   "antiBot": {
     "enabled": true,
     "detectors": [
       "text=\"登录后查看搜索结果\"",
-      "text-matches(\"可用\\\\s*小红书\\\\s*或\\\\s*微信\\\\s*扫码\")"
+      "text-matches(\"可用\\\\s*小红书\\\\s*或\\\\s*微信\\\\s*扫码\")",
+      "text-matches(\"请求频繁\")"
     ],
-    "errorMessage": "小红书需要登录，请手动完成登录后重试。"
+    "errorMessage": "小红书需要效验，请手动完成登录后重试。"
   },
   "customDelay": {
     "min": 2500,

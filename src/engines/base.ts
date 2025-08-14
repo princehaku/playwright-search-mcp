@@ -31,6 +31,8 @@ export interface SearchEngineConfig {
     detectors: string[];
     errorMessage: string;
   };
+  linkValidation?: string[];
+  fallbackSelector?: string;
   customDelay?: {
     min: number;
     max: number;
@@ -88,7 +90,7 @@ export class ConfigurableSearchEngine {
       await this.saveHtml(this.page, query);
       
       // 解析搜索结果
-      const results = await this.parser.parseResults(this.page, this.options.limit || 10);
+      const results = await this.parser.parseResults(this.page, this.options.limit || 50);
       
       logger.info({
         query,
@@ -172,7 +174,7 @@ export class ConfigurableSearchEngine {
   protected async waitForPageLoad(page: Page): Promise<void> {
     try {
       await page.waitForSelector(this.config.selectors.resultContainer, {
-        timeout: 10000,
+        timeout: 15000,
       });
     } catch (e) {
       logger.warn("等待搜索结果超时，继续处理");

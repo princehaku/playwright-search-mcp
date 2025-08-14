@@ -4,14 +4,13 @@
   "baseUrl": "https://www.zhihu.com",
   "searchPath": "/search?type=content&q=",
   "selectors": {
-    "resultContainer": "div[data-za-detail-view-element_name], .List-item, .SearchResult-Card, div.Search-result",
-    "title": "h2 a, .ContentItem-title a, .SearchResult-title a",
-    "link": "h2 a, .ContentItem-title a, .SearchResult-title a",
-    "snippet": ".ContentItem-content, .SearchResult-excerpt, .RichText"
+    "resultContainer": ".Card.SearchResult-Card",
+    "title": ".ContentItem-title a",
+    "link": ".ContentItem-title a",
+    "snippet": ".RichText.ztext.CopyrightRichText-richText, .RichText, .RichContent-inner"
   },
   "headers": {
-    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8"
   },
   "antiBot": {
     "enabled": true,

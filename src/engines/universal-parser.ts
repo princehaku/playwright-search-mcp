@@ -28,7 +28,7 @@ export class UniversalResultParser {
       let resultElements: any[] = [];
       
       for (const containerSelector of containerSelectors) {
-        logger.debug(`尝试容器选择器: ${containerSelector}`);
+        logger.info(`尝试容器选择器: ${containerSelector}`);
         try {
           await page.waitForSelector(containerSelector.trim(), { timeout: 3000 });
           const elements = await page.$$(containerSelector.trim());
@@ -60,7 +60,7 @@ export class UniversalResultParser {
           const result = await this.parseElement(element, i + 1);
           if (result) {
             results.push(result);
-            logger.debug(`成功解析第${i+1}个结果: ${result.title.substring(0, 30)}...`);
+            logger.info(`成功解析第${i+1}个结果: ${result.title.substring(0, 30)}...`);
           }
         } catch (e) {
           logger.warn({ error: e }, `解析第${i+1}个${this.config.name}搜索结果元素失败`);
@@ -75,7 +75,7 @@ export class UniversalResultParser {
   }
 
   private async parseElement(element: any, index: number): Promise<SearchResult | null> {
-    logger.debug(`开始解析第${index}个元素...`);
+    logger.info(`开始解析第${index}个元素...`);
     
     // 尝试多种标题选择器
     const titleSelectors = this.config.selectors.title.split(', ');
@@ -102,7 +102,7 @@ export class UniversalResultParser {
     
     // 如果标准方法失败，尝试更宽松的方法
     if (!title || !href) {
-      logger.debug(`标准方法失败，尝试宽松解析...`);
+      logger.warn(`标准方法失败，尝试宽松解析...`);
       
       // 尝试找任何链接
       const anyLink = await element.$('a');
@@ -127,13 +127,13 @@ export class UniversalResultParser {
     }
     
     if (!title || !href) {
-      logger.debug(`第${index}个元素：未找到有效的标题或链接 (title="${title}", href="${href}")`);
+      logger.warn(`第${index}个元素：未找到有效的标题或链接 (title="${title}", href="${href}")`);
       return null;
     }
     
     // 验证和完善链接
     if (!this.isValidLink(href)) {
-      logger.debug(`第${index}个元素：链接验证失败: ${href}`);
+      logger.warn(`第${index}个元素：链接验证失败: ${href}`);
       return null;
     }
     
