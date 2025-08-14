@@ -154,7 +154,7 @@ export class ConfigurableSearchEngine {
     const searchUrl = this.buildSearchUrl(query);
     logger.info({ url: searchUrl }, `正在导航到${this.config.name}搜索页面`);
     
-    await page.goto(searchUrl, { waitUntil: "networkidle" });
+    await page.goto(searchUrl, { waitUntil: "domcontentloaded" });
   }
 
   // 通用方法：构建搜索URL
@@ -270,6 +270,6 @@ export class ConfigurableSearchEngine {
     });
 
     // 短暂等待
-    await page.waitForTimeout(1000 + Math.random() * 2000);
+    await page.waitForTimeout(1500 + Math.random() * 2000);
   }
 }
